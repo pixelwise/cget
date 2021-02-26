@@ -31,7 +31,7 @@ class cache_lock(object):
         self.file_lock.acquire()
         mkdir(self.cache_base_dir)
 
-    def __exit__(self):
+    def __exit__(self, value, traceback):
         self.file_lock.release()
         if self.umask:
             os.umask(self.old_umask)
