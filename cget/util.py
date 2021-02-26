@@ -26,7 +26,7 @@ class cache_lock(object):
 
     def __enter__(self):
         if self.umask:
-            self.old_umask = os.umask(int(self.umask))
+            self.old_umask = os.umask(int(self.umask, 8))
         self.file_lock = filelock.FileLock(os.path.join(self.cache_base_dir, "lock"))
         self.file_lock.acquire()
         mkdir(self.cache_base_dir)
