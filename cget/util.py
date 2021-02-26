@@ -47,6 +47,9 @@ USE_CMAKE_TAR=to_bool(os.environ.get('CGET_USE_CMAKE_TAR', True))
 
 __CGET_DIR__ = os.path.dirname(os.path.realpath(__file__))
 
+def fix_cache_permissions_recursive(path):
+    subprocess.check_call(["chmod", "-R", "g+rw", path])
+
 def cget_dir(*args):
     return os.path.join(__CGET_DIR__, *args)
 
