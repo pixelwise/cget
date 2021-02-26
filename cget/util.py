@@ -18,6 +18,25 @@ else:
 
 import requests
 
+
+class cache_lock(object):
+    def __init__(self):
+        self.umask = os.getenv("CGET_UMASK")
+        self.cache_base_dir = get_cache_path()
+
+    def __enter__(self):
+        if self.umask:
+            self.old_umask = os.umask(int(self.umask))
+        self.file_lock = filelock.FileLock(os.path.join(self.cache_base_dir, "lock"))
+        self.file_lock.acquire()
+        mkdir(self.cache_base_dir)
+
+    def __exit__(self):
+        self.file_lock.release()
+        if self.umask:
+            os.umask(self.old_umask)
+
+
 def to_bool(value):
     x = str(value).lower()
     if x in ("no",  "n", "false", "f", "0", "0.0", "", "none", "[]", "{}"): return False
@@ -87,11 +106,6 @@ def mkfile(d, file, content, always_write=True):
         write_to(p, content)
     return p
 
-def cache_lock():
-    cache_base_dir = get_cache_path()
-    mkdir(cache_base_dir)
-    return filelock.FileLock(os.path.join(cache_base_dir, "lock"))
-
 def zipdir(src_dir, tgt_file):
     print("zipping '%s' to '%s" % (src_dir, tgt_file))
     zipf = zipfile.ZipFile(tgt_file, 'w', zipfile.ZIP_DEFLATED)
@@ -106,33 +120,6 @@ def zipdir(src_dir, tgt_file):
             )
     zipf.close()
 
-def unzip(zipname, extract_dir):
-    def extract_file(zf, info, extract_dir):
-        zf.extract( info.filename, path=extract_dir )
-        out_path = os.path.join( extract_dir, info.filename )
-        perm = info.external_attr >> 16
-        os.chmod( out_path, perm )
-    with zipfile.ZipFile(zipname, 'r') as zf:
-        for info in zf.infolist():
-            extract_file(zf, info, extract_dir)
-
-def zip_dir_to_cache(prefix, key, src_dir):
-    with cache_lock():
-        cache_dir = get_cache_path(prefix)
-        zipfile_path = os.path.join(cache_dir, key + ".zip")
-        mkdir(cache_dir)
-        zipdir(src_dir, zipfile_path)
-
-def unzip_dir_from_cache(prefix, key, tgt_dir):
-    with cache_lock():
-        cache_dir = get_cache_path(prefix)
-        zipfile_path = os.path.join(cache_dir, key + ".zip")
-        if os.path.exists(zipfile_path):
-            unzip(zipfile_path, tgt_dir)
-            return True
-        else:
-            return False
-
 def ls(p, predicate=lambda x:True):
     if os.path.exists(p):
         return (d for d in os.listdir(p) if predicate(os.path.join(p, d)))
@@ -143,7 +130,8 @@ def get_app_dir(*args):
     return os.path.join(click.get_app_dir('cget'), *args)
 
 def get_cache_path(*args):
-    return os.path.join(os.path.expanduser("~"), ".cget", "cache", *args)
+    cget_dir = os.getenv("CGET_DIR", os.path.join(os.path.expanduser("~"), ".cget"))
+    return os.path.join(cget_dir, "cache", *args)
 
 def adjust_path(p):
     # Prefixing path to avoid problems with long paths on windows
