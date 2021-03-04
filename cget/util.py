@@ -48,7 +48,7 @@ USE_CMAKE_TAR=to_bool(os.environ.get('CGET_USE_CMAKE_TAR', True))
 __CGET_DIR__ = os.path.dirname(os.path.realpath(__file__))
 
 def fix_cache_permissions_recursive(path):
-    if os.environ['CGET_DIR']:
+    if os.environ.get('CGET_DIR'):
         gid = os.stat(os.environ['CGET_DIR']).st_gid
         subprocess.check_call(["chgrp", "-R", str(gid), path])
     subprocess.check_call(["chmod", "-R", "g+rw", path])
