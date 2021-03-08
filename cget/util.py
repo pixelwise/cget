@@ -22,7 +22,7 @@ import requests
 class cache_lock(object):
     def __init__(self):
         self.umask = os.getenv("CGET_UMASK")
-        self.cache_base_dir = get_cache_path()
+        self.cache_base_dir = mkdir(get_cache_path())
 
     def __enter__(self):
         if self.umask:
@@ -103,7 +103,9 @@ def write_to(file, lines):
             f.writelines(content)
 
 def mkdir(p):
-    if not os.path.exists(p): os.makedirs(p)
+    if not os.path.exists(p):
+        print("making cache dir '%s'" % p)
+        os.makedirs(p)
     return p
 
 def mkfile(d, file, content, always_write=True):
