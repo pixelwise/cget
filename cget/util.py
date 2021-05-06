@@ -44,6 +44,7 @@ def to_bool(value):
 
 USE_SYMLINKS=to_bool(os.environ.get('CGET_USE_SYMLINKS', (os.name == 'posix')))
 USE_CMAKE_TAR=to_bool(os.environ.get('CGET_USE_CMAKE_TAR', True))
+MERGE_INSTALLS=to_bool(os.environ.get('CGET_MERGE_INSTALLS', True))
 
 __CGET_DIR__ = os.path.dirname(os.path.realpath(__file__))
 
