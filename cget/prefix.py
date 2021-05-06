@@ -431,8 +431,8 @@ class CGetPrefix:
                         builder.build(target='install', variant=pb.variant)
                         if use_build_cache:
                             util.fix_cache_permissions_recursive(install_dir)
-        if util.USE_SYMLINKS: util.symlink_dir(install_dir, self.prefix)
-        else: util.copy_dir(install_dir, self.prefix)
+        #if util.USE_SYMLINKS: util.symlink_dir(install_dir, self.prefix)
+        #else: util.copy_dir(install_dir, self.prefix)
         self.write_parent(pb, track=track)
         return "Successfully installed {}".format(pb.to_name())
 
@@ -496,11 +496,11 @@ class CGetPrefix:
         unlink_dir = self.get_unlink_directory(pkg.to_fname())
         self.log("Unlink:", pkg_dir)
         if os.path.exists(pkg_dir):
-            if util.USE_SYMLINKS:
-                util.rm_symlink_from(os.path.join(pkg_dir, 'install'), self.prefix)
-            else:
-                util.rm_dup_dir(os.path.join(pkg_dir, 'install'), self.prefix, remove_both=False)
-            util.rm_empty_dirs(self.prefix)
+            #if util.USE_SYMLINKS:
+            #    util.rm_symlink_from(os.path.join(pkg_dir, 'install'), self.prefix)
+            #else:
+            #    util.rm_dup_dir(os.path.join(pkg_dir, 'install'), self.prefix, remove_both=False)
+            #util.rm_empty_dirs(self.prefix)
             if delete: util.delete_dir(pkg_dir)
             else:
                 util.mkdir(self.get_unlink_directory())
@@ -514,8 +514,8 @@ class CGetPrefix:
         if os.path.exists(unlink_dir):
             util.mkdir(self.get_package_directory())
             os.rename(unlink_dir, pkg_dir)
-            if util.USE_SYMLINKS: util.symlink_dir(os.path.join(pkg_dir, 'install'), self.prefix)
-            else: util.copy_dir(os.path.join(pkg_dir, 'install'), self.prefix)
+            #if util.USE_SYMLINKS: util.symlink_dir(os.path.join(pkg_dir, 'install'), self.prefix)
+            #else: util.copy_dir(os.path.join(pkg_dir, 'install'), self.prefix)
         # Relink dependencies
         for dep in util.ls(self.get_unlink_directory(), os.path.isdir):
             ls = util.ls(self.get_unlink_deps_directory(dep), os.path.isfile)
