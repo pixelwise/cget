@@ -409,9 +409,10 @@ class CGetPrefix:
                                 os.rename(target, os.path.join(src_dir, builder.cmake_original_file))
                             shutil.copyfile(pb.cmake, target)
                         # Configure and build
+                        dependents = dep in self.get_dependents(pb, src_dir)
                         defines = list(pb.define or []) + [
                             "CMAKE_PREFIX_PATH=%s" % ";".join(
-                                ['"%s"' % self.get_real_install_path(dep) for dep in self.get_dependents(pb, src_dir)]
+                                ['"%s"' % self.get_real_install_path(dep) for dep in dependents]
                             )
                         ]
                         defines.append("-DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON")
@@ -424,6 +425,7 @@ class CGetPrefix:
                                             os.path.join(self.get_real_install_path(dep) + "lib"),
                                             os.path.join(self.get_real_install_path(dep) + "/lib64"),
                                         ]
+                                        for dep in dependents
                                     ],
                                     []
                                 )
