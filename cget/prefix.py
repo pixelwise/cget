@@ -416,6 +416,7 @@ class CGetPrefix:
                             )
                         ]
                         defines.append("-DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON")
+                        defines.append("-DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=OFF")
                         env = {
                             "PKG_CONFIG_LIBDIR":"/dev/null",
                             "PKG_CONFIG_PATH":";".join(
