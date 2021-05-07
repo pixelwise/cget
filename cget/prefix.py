@@ -421,7 +421,7 @@ class CGetPrefix:
                         defines.append("CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF")
                         env = {
                             "PKG_CONFIG_LIBDIR":"/dev/null",
-                            "PKG_CONFIG_PATH":";".join(
+                            "PKG_CONFIG_PATH":":".join(
                                 sum(
                                     [
                                         [
