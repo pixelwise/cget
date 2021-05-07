@@ -414,15 +414,33 @@ class CGetPrefix:
                                 ['"%s"' % self.get_real_install_path(dep) for dep in self.get_dependents(pb, src_dir)]
                             )
                         ]
+                        defines.append("-DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON")
+                        env = {
+                            "PKG_CONFIG_LIBDIR":"/dev/null",
+                            "PKG_CONFIG_PATH":";".join(
+                                sum(
+                                    [
+                                        [
+                                            os.path.join(self.get_real_install_path(dep) + "lib"),
+                                            os.path.join(self.get_real_install_path(dep) + "/lib64"),
+                                        ]
+                                    ],
+                                    []
+                                )
+                            )
+                        }
                         print("defines")
                         print(defines)
+                        print("env")
+                        print(env)
                         builder.configure(
                             src_dir,
                             defines=defines,
                             generator=generator,
                             install_prefix=install_dir,
                             test=test,
-                            variant=pb.variant
+                            variant=pb.variant,
+                            env=env
                         )
                         builder.build(variant=pb.variant)
                         # Run tests if enabled

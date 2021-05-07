@@ -20,7 +20,10 @@ class Builder:
         return os.path.exists(self.get_build_path('Makefile'))
 
     def cmake(self, options=None, use_toolchain=False, **kwargs):
-        if use_toolchain: return self.prefix.cmd.cmake(options=util.merge({'-DCMAKE_TOOLCHAIN_FILE': self.prefix.toolchain}, options), **kwargs)
+        if use_toolchain: return self.prefix.cmd.cmake(
+            options=util.merge({'-DCMAKE_TOOLCHAIN_FILE': self.prefix.toolchain}, options),
+            **kwargs
+        )
         else: return self.prefix.cmd.cmake(options=options, **kwargs)
 
     def show_log(self, log):
@@ -50,7 +53,7 @@ class Builder:
             util.extract_ar(archive=f, dst=self.top_dir)
         return next(util.get_dirs(self.top_dir))
 
-    def configure(self, src_dir, defines=None, generator=None, install_prefix=None, test=True, variant=None):
+    def configure(self, src_dir, defines=None, generator=None, install_prefix=None, test=True, variant=None, env=None):
         self.prefix.log("configure")
         util.mkdir(self.build_dir)
         args = [
@@ -67,7 +70,7 @@ class Builder:
         args.extend(['-DCMAKE_BUILD_TYPE={}'.format(variant or 'Release')])
         if install_prefix is not None: args.extend(['-DCMAKE_INSTALL_PREFIX=' + install_prefix])
         try:
-            self.cmake(args=args, cwd=self.build_dir, use_toolchain=True)
+            self.cmake(args=args, cwd=self.build_dir, use_toolchain=True, env=env)
         except:
             self.show_logs()
             raise
