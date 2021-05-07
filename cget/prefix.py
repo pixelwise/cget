@@ -416,9 +416,9 @@ class CGetPrefix:
                                 ['%s' % path for path in dep_install_paths]
                             )
                         ]
-                        defines.append("PKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON")
-                        defines.append("CMAKE_FIND_USE_CMAKE_SYSTEM_PATH=OFF")
-                        defines.append("CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF")
+                        #defines.append("PKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON")
+                        #defines.append("CMAKE_FIND_USE_CMAKE_SYSTEM_PATH=OFF")
+                        #defines.append("CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF")
                         pkg_config_paths = list(
                             filter(
                                 os.path.exists,
