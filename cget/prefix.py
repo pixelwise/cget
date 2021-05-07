@@ -413,7 +413,7 @@ class CGetPrefix:
                         dep_install_paths = list([self.get_real_install_path(dep) for dep in dependents])
                         defines = list(pb.define or []) + [
                             "CMAKE_PREFIX_PATH=%s" % ";".join(
-                                ['%s' % for path in dep_install_paths]
+                                ['%s' % path for path in dep_install_paths]
                             )
                         ]
                         defines.append("PKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON")
