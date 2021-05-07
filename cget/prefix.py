@@ -425,8 +425,8 @@ class CGetPrefix:
                                 sum(
                                     [
                                         [
-                                            os.path.join(path, "lib"),
-                                            os.path.join(path, "lib64"),
+                                            os.path.join(path, "lib/pkgconfig"),
+                                            os.path.join(path, "lib64/pkgconfig"),
                                         ]
                                         for path in dep_install_paths
                                     ],
