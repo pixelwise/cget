@@ -410,9 +410,10 @@ class CGetPrefix:
                             shutil.copyfile(pb.cmake, target)
                         # Configure and build
                         dependents = self.get_dependents(pb, src_dir)
+                        dep_install_paths = list([self.get_real_install_path(dep) for dep in dependents])
                         defines = list(pb.define or []) + [
                             "CMAKE_PREFIX_PATH=%s" % ";".join(
-                                ['%s' % self.get_real_install_path(dep) for dep in dependents]
+                                ['%s' % for path in dep_install_paths]
                             )
                         ]
                         defines.append("PKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON")
@@ -424,10 +425,10 @@ class CGetPrefix:
                                 sum(
                                     [
                                         [
-                                            os.path.join(self.get_real_install_path(dep) + "lib"),
-                                            os.path.join(self.get_real_install_path(dep) + "/lib64"),
+                                            os.path.join(path, "lib"),
+                                            os.path.join(path, "lib64"),
                                         ]
-                                        for dep in dependents
+                                        for path in dep_install_paths
                                     ],
                                     []
                                 )
