@@ -434,14 +434,29 @@ class CGetPrefix:
                                 )
                             )
                         )
-                        env = {
+                        bin_paths = list(
+                            filter(
+                                os.path.exists,
+                                [
+                                    os.path.join(path, "bin")
+                                    for path in dep_install_paths
+                                ]
+                            )
+                        ) + os.getenv("PATH", "").split(":")
+                        configure_env = {
                             "PKG_CONFIG_LIBDIR":"/dev/null",
-                            "PKG_CONFIG_PATH":":".join(pkg_config_paths)
+                            "PKG_CONFIG_PATH":":".join(pkg_config_paths),
+                            "PATH":":".join(bin_paths)
+                        }
+                        build_env = {
+                            "PATH":":".join(bin_paths)
                         }
                         print("defines")
                         print(defines)
                         print("env")
-                        print(env)
+                        print(configure_env)
+                        print("build env")
+                        print(build_env)
                         builder.configure(
                             src_dir,
                             defines=defines,
@@ -449,13 +464,13 @@ class CGetPrefix:
                             install_prefix=install_dir,
                             test=test,
                             variant=pb.variant,
-                            env=env
+                            env=configure_env
                         )
-                        builder.build(variant=pb.variant)
+                        builder.build(variant=pb.variant, env=build_env)
                         # Run tests if enabled
                         if test or test_all: builder.test(variant=pb.variant)
                         # Install
-                        builder.build(target='install', variant=pb.variant)
+                        builder.build(target='install', variant=pb.variant, env=build_env)
                         if use_build_cache:
                             util.fix_cache_permissions_recursive(install_dir)
         if util.MERGE_INSTALLS:

@@ -75,7 +75,7 @@ class Builder:
             self.show_logs()
             raise
 
-    def build(self, target=None, variant=None, cwd=None):
+    def build(self, target=None, variant=None, cwd=None, env=None):
         self.prefix.log("build")
         args = ['--build', self.build_dir]
         if variant is not None: args.extend(['--config', variant])
@@ -83,7 +83,7 @@ class Builder:
         if self.is_make_generator(): 
             args.extend(['--', '-j', str(multiprocessing.cpu_count())])
             if self.prefix.verbose: args.append('VERBOSE=1')
-        self.cmake(args=args, cwd=cwd)
+        self.cmake(args=args, cwd=cwd, env=env)
 
     def test(self, variant=None):
         self.prefix.log("test")
