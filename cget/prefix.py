@@ -446,7 +446,9 @@ class CGetPrefix:
                         configure_env = {
                             "PKG_CONFIG_LIBDIR":"/dev/null",
                             "PKG_CONFIG_PATH":":".join(pkg_config_paths),
-                            "PATH":":".join(bin_paths)
+                            "PATH":":".join(bin_paths),
+                            "CFLAGS" : os.getenv("CFLAGS", ""),
+                            "CXXFLAGS" : os.getenv("CXXFLAGS", "")
                         }
                         build_env = {
                             "PATH":":".join(bin_paths)
