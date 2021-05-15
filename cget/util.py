@@ -105,7 +105,6 @@ def write_to(file, lines):
 
 def mkdir(p):
     if not os.path.exists(p):
-        print("making cache dir '%s'" % p)
         os.makedirs(p)
     return p
 
