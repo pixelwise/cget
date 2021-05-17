@@ -1,5 +1,5 @@
 import os, shutil, shlex, six, inspect, click, contextlib, uuid, sys, functools, hashlib
-import subprocess
+import distro, platform
 
 from cget.builder import Builder
 from cget.package import fname_to_pkg
@@ -100,7 +100,8 @@ class CGetPrefix:
         self.toolchain = self.write_cmake()
         with open(self.toolchain, "rb") as toolchain_file:
             self.toolchain_hash = hashlib.sha1(toolchain_file.read()).hexdigest()
-            self.system_hash = subprocess.check_output(["uname", "-mprv"]).decode("utf-8")
+            self.system_id = "%s-%s-%s" % (distro.id(), distro.version(), platform.architecture())
+            self.log("system: %s" % self.system_id)
 
     def log(self, *args):
         if self.verbose: click.secho(' '.join([str(arg) for arg in args]), bold=True)
@@ -232,7 +233,7 @@ class CGetPrefix:
             for dependency in self.from_file(pkg_build.requirements):
                 result = hashlib.sha1((result + self.hash_pkg(dependency, True)).encode("utf-8")).hexdigest()
         if not is_dependency:
-            result = hashlib.sha1((result + self.toolchain_hash + self.system_hash).encode("utf-8")).hexdigest()
+            result = hashlib.sha1((result + self.toolchain_hash + self.system_id).encode("utf-8")).hexdigest()
         return result
 
     @returns(PackageSource)
