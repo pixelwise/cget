@@ -74,7 +74,6 @@ class PackageBuild:
     def of(self, parent):
         result = copy.copy(self)
         result.parent = parent.to_fname()
-        result.define.extend(parent.define)
         result.variant = parent.variant
         return result
 
