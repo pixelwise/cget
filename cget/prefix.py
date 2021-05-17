@@ -1,4 +1,5 @@
 import os, shutil, shlex, six, inspect, click, contextlib, uuid, sys, functools, hashlib
+import subprocess
 
 from cget.builder import Builder
 from cget.package import fname_to_pkg
@@ -97,6 +98,9 @@ class CGetPrefix:
         self.build_path_var = build_path
         self.cmd = util.Commander(paths=[self.get_path('bin')], env=self.get_env(), verbose=self.verbose)
         self.toolchain = self.write_cmake()
+        with open(self.toolchain, "rb") as toolchain_file:
+            self.toolchain_hash = hashlib.sha1(toolchain_file.read()).hexdigest()
+            self.system_hash = subprocess.check_output(["uname", "-mprv"]).decode("utf-8")
 
     def log(self, *args):
         if self.verbose: click.secho(' '.join([str(arg) for arg in args]), bold=True)
@@ -220,13 +224,15 @@ class CGetPrefix:
         if name is None: name = p
         return PackageSource(name=name, url=url)
 
-    def hash_pkg(self, pkg):
+    def hash_pkg(self, pkg, is_dependency=False):
         pkg_src = self.parse_pkg_src(pkg)
         result = pkg_src.calc_hash()
         pkg_build = self.parse_pkg_build(pkg)
         if pkg_build.requirements:
             for dependency in self.from_file(pkg_build.requirements):
-                result = hashlib.sha1((result + self.hash_pkg(dependency)).encode("utf-8")).hexdigest()
+                result = hashlib.sha1((result + self.hash_pkg(dependency, True)).encode("utf-8")).hexdigest()
+        if not is_dependency:
+            result = hashlib.sha1((result + self.toolchain_hash + self.system_hash).encode("utf-8")).hexdigest()
         return result
 
     @returns(PackageSource)
