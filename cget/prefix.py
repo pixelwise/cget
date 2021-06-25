@@ -390,104 +390,108 @@ class CGetPrefix:
                     print("retreived Package {} from cache".format(pb.to_name()))
                     build_needed = False
         if build_needed:
-            with self.create_builder(uuid.uuid4().hex, tmp=True) as builder:
-                # Fetch package
-                src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake != None), insecure=insecure)
-                # Install any dependencies first
-                if not recipe_deps_only:
-                    self.install_deps(
-                        pb,
-                        src_dir=src_dir,
-                        test=test,
-                        test_all=test_all,
-                        generator=generator,
-                        insecure=insecure,
-                        use_build_cache=use_build_cache,
-                        recipe_deps_only=False
-                    )
-                with util.cache_lock() as cache_lock:
-                    if not update and use_build_cache and os.path.exists(install_dir):
-                        print("retreived Package {} from cache".format(pb.to_name()))
-                    else:
-                        # Setup cmake file
-                        if pb.cmake:
-                            target = os.path.join(src_dir, 'CMakeLists.txt')
-                            if os.path.exists(target):
-                                os.rename(target, os.path.join(src_dir, builder.cmake_original_file))
-                            shutil.copyfile(pb.cmake, target)
-                        # Configure and build
-                        dependents = self.get_dependents(pb, src_dir)
-                        dep_install_paths = list([self.get_real_install_path(dep) for dep in dependents])
-                        defines = (
-                            list(pb.define or []) +
-                            [
-                                "CMAKE_PREFIX_PATH=%s" % ";".join(
-                                    ['%s' % path for path in dep_install_paths + [self.prefix]]
-                                )
-                            ] +
-                            list([
-                                "CGET_%s_INSTALL_DIR=%s" % (dep.to_name(), self.get_real_install_path(dep)) for dep in dependents
-                            ])
-                        )
-                        #defines.append("PKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON")
-                        #defines.append("CMAKE_FIND_USE_CMAKE_SYSTEM_PATH=OFF")
-                        #defines.append("CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF")
-                        pkg_config_paths = list(
-                            filter(
-                                os.path.exists,
-                                sum(
-                                    [
-                                        [
-                                            os.path.join(path, "lib/pkgconfig"),
-                                            os.path.join(path, "lib64/pkgconfig"),
-                                        ]
-                                        for path in dep_install_paths
-                                    ],
-                                    []
-                                )
-                            )
-                        )
-                        bin_paths = list(
-                            filter(
-                                os.path.exists,
-                                [
-                                    os.path.join(path, "bin")
-                                    for path in dep_install_paths
-                                ]
-                            )
-                        ) + os.getenv("PATH", "").split(":")
-                        configure_env = {
-                            "PKG_CONFIG_LIBDIR":"/dev/null",
-                            "PKG_CONFIG_PATH":":".join(pkg_config_paths),
-                            "PATH":":".join(bin_paths),
-                            "CFLAGS" : os.getenv("CFLAGS", ""),
-                            "CXXFLAGS" : os.getenv("CXXFLAGS", "")
-                        }
-                        build_env = {
-                            "PATH":":".join(bin_paths)
-                        }
-                        print("defines")
-                        print(defines)
-                        print("env")
-                        print(configure_env)
-                        print("build env")
-                        print(build_env)
-                        builder.configure(
-                            src_dir,
-                            defines=defines,
-                            generator=generator,
-                            install_prefix=install_dir,
+            try:
+                with self.create_builder(uuid.uuid4().hex, tmp=True) as builder:
+                    # Fetch package
+                    src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake != None), insecure=insecure)
+                    # Install any dependencies first
+                    if not recipe_deps_only:
+                        self.install_deps(
+                            pb,
+                            src_dir=src_dir,
                             test=test,
-                            variant=pb.variant,
-                            env=configure_env
+                            test_all=test_all,
+                            generator=generator,
+                            insecure=insecure,
+                            use_build_cache=use_build_cache,
+                            recipe_deps_only=False
                         )
-                        builder.build(variant=pb.variant, env=build_env)
-                        # Run tests if enabled
-                        if test or test_all: builder.test(variant=pb.variant)
-                        # Install
-                        builder.build(target='install', variant=pb.variant, env=build_env)
-                        if use_build_cache:
-                            util.fix_cache_permissions_recursive(install_dir)
+                    with util.cache_lock() as cache_lock:
+                        if not update and use_build_cache and os.path.exists(install_dir):
+                            print("retreived Package {} from cache".format(pb.to_name()))
+                        else:
+                            # Setup cmake file
+                            if pb.cmake:
+                                target = os.path.join(src_dir, 'CMakeLists.txt')
+                                if os.path.exists(target):
+                                    os.rename(target, os.path.join(src_dir, builder.cmake_original_file))
+                                shutil.copyfile(pb.cmake, target)
+                            # Configure and build
+                            dependents = self.get_dependents(pb, src_dir)
+                            dep_install_paths = list([self.get_real_install_path(dep) for dep in dependents])
+                            defines = (
+                                list(pb.define or []) +
+                                [
+                                    "CMAKE_PREFIX_PATH=%s" % ";".join(
+                                        ['%s' % path for path in dep_install_paths + [self.prefix]]
+                                    )
+                                ] +
+                                list([
+                                    "CGET_%s_INSTALL_DIR=%s" % (dep.to_name(), self.get_real_install_path(dep)) for dep in dependents
+                                ])
+                            )
+                            #defines.append("PKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON")
+                            #defines.append("CMAKE_FIND_USE_CMAKE_SYSTEM_PATH=OFF")
+                            #defines.append("CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF")
+                            pkg_config_paths = list(
+                                filter(
+                                    os.path.exists,
+                                    sum(
+                                        [
+                                            [
+                                                os.path.join(path, "lib/pkgconfig"),
+                                                os.path.join(path, "lib64/pkgconfig"),
+                                            ]
+                                            for path in dep_install_paths
+                                        ],
+                                        []
+                                    )
+                                )
+                            )
+                            bin_paths = list(
+                                filter(
+                                    os.path.exists,
+                                    [
+                                        os.path.join(path, "bin")
+                                        for path in dep_install_paths
+                                    ]
+                                )
+                            ) + os.getenv("PATH", "").split(":")
+                            configure_env = {
+                                "PKG_CONFIG_LIBDIR":"/dev/null",
+                                "PKG_CONFIG_PATH":":".join(pkg_config_paths),
+                                "PATH":":".join(bin_paths),
+                                "CFLAGS" : os.getenv("CFLAGS", ""),
+                                "CXXFLAGS" : os.getenv("CXXFLAGS", "")
+                            }
+                            build_env = {
+                                "PATH":":".join(bin_paths)
+                            }
+                            print("defines")
+                            print(defines)
+                            print("env")
+                            print(configure_env)
+                            print("build env")
+                            print(build_env)
+                            builder.configure(
+                                src_dir,
+                                defines=defines,
+                                generator=generator,
+                                install_prefix=install_dir,
+                                test=test,
+                                variant=pb.variant,
+                                env=configure_env
+                            )
+                            builder.build(variant=pb.variant, env=build_env)
+                            # Run tests if enabled
+                            if test or test_all: builder.test(variant=pb.variant)
+                            # Install
+                            builder.build(target='install', variant=pb.variant, env=build_env)
+                            if use_build_cache:
+                                util.fix_cache_permissions_recursive(install_dir)
+            except:
+                shutil.rmtree(pkg_dir)
+                raise
         if util.MERGE_INSTALLS:
             if util.USE_SYMLINKS: util.symlink_dir(install_dir, self.prefix)
             else: util.copy_dir(install_dir, self.prefix)
