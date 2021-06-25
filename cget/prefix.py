@@ -288,12 +288,14 @@ class CGetPrefix:
             start = url[7:]
         with open(file) as f:
             self.log("parse file: " + file)
+            result = []
             for line in f.readlines():
                 tokens = shlex.split(line, comments=True)
                 if len(tokens) > 0: 
                     pb = parse_pkg_build_tokens(tokens)
                     ps = self.from_file(util.actual_path(pb.file, start), no_recipe=no_recipe) if pb.file else [self.parse_pkg_build(pb, start=start, no_recipe=no_recipe)]
-                    return ps
+                    result += ps
+            return result
 
     def write_parent(self, pb, track=True):
         if track and pb.parent is not None: util.mkfile(self.get_deps_directory(pb.to_fname()), pb.parent, pb.parent)
@@ -467,6 +469,8 @@ class CGetPrefix:
                             build_env = {
                                 "PATH":":".join(bin_paths)
                             }
+                            print("dependencies")
+                            print([dep.to_name() for dep in dependents])
                             print("defines")
                             print(defines)
                             print("env")
