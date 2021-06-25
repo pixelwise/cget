@@ -279,10 +279,10 @@ class CGetPrefix:
 
     def from_file(self, file, url=None, no_recipe=False):
         if file is None:
-            return
+            return []
         if not os.path.exists(file):
             self.log("file not found: " + file)
-            return
+            return []
         start = os.path.dirname(file)
         if url is not None and url.startswith('file://'):
             start = url[7:]
@@ -293,7 +293,7 @@ class CGetPrefix:
                 if len(tokens) > 0: 
                     pb = parse_pkg_build_tokens(tokens)
                     ps = self.from_file(util.actual_path(pb.file, start), no_recipe=no_recipe) if pb.file else [self.parse_pkg_build(pb, start=start, no_recipe=no_recipe)]
-                    for p in ps: yield p
+                    return ps
 
     def write_parent(self, pb, track=True):
         if track and pb.parent is not None: util.mkfile(self.get_deps_directory(pb.to_fname()), pb.parent, pb.parent)
@@ -418,11 +418,17 @@ class CGetPrefix:
                         # Configure and build
                         dependents = self.get_dependents(pb, src_dir)
                         dep_install_paths = list([self.get_real_install_path(dep) for dep in dependents])
-                        defines = list(pb.define or []) + [
-                            "CMAKE_PREFIX_PATH=%s" % ";".join(
-                                ['%s' % path for path in dep_install_paths + [self.prefix]]
-                            )
-                        ]
+                        defines = (
+                            list(pb.define or []) +
+                            [
+                                "CMAKE_PREFIX_PATH=%s" % ";".join(
+                                    ['%s' % path for path in dep_install_paths + [self.prefix]]
+                                )
+                            ] +
+                            list([
+                                "CGET_%s_INSTALL_DIR=%s" % (dep.to_name(), self.get_real_install_path(dep)) for dep in dependents
+                            ])
+                        )
                         #defines.append("PKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON")
                         #defines.append("CMAKE_FIND_USE_CMAKE_SYSTEM_PATH=OFF")
                         #defines.append("CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF")
