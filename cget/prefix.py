@@ -393,7 +393,7 @@ class CGetPrefix:
                     build_needed = False
         if build_needed:
             try:
-                with self.create_builder(uuid.uuid4().hex, tmp=True) as builder:
+                with self.create_builder(pb.to_name() + "-" + uuid.uuid4().hex, tmp=True) as builder:
                     # Fetch package
                     src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake != None), insecure=insecure)
                     # Install any dependencies first
