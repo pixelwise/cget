@@ -349,19 +349,19 @@ class CGetPrefix:
         pb = self.parse_pkg_build(pb)
         pkg_dir = self.get_package_directory(pb.to_fname())
         unlink_dir = self.get_unlink_directory(pb.to_fname())
-        print("=== installing %s ===" % pb.to_name())
+        package_hash = self.hash_pkg(pb)
+        print("=> installing %s hash %s" % (pb.to_name(), package_hash))
         # If its been unlinked, then link it in
         if os.path.exists(unlink_dir):
             if update: shutil.rmtree(unlink_dir)
             else:
                 self.link(pb)
-                return "Linking package {}".format(pb.to_name())
+                return "=> Relinking package {}".format(pb.to_name())
         if os.path.exists(pkg_dir): 
             if update:
                 self.remove(pb)
             else:
-                return "Package {} already installed".format(pb.to_name())
-        package_hash = self.hash_pkg(pb)
+                return "=> Package {} already installed".format(pb.to_name())
         self.log("package %s hash %s" % (pb.to_name(), package_hash))
         pkg_install_dir = self.get_package_directory(pb.to_fname(), 'install')
         if use_build_cache:
@@ -385,10 +385,10 @@ class CGetPrefix:
             )
             with util.cache_lock() as cache_lock:
                 if not update and use_build_cache and os.path.exists(install_dir):
-                    print("retreived Package {} from cache".format(pb.to_name()))
+                    print("=> retreived Package {} from cache".format(pb.to_name()))
                     build_needed = False
         if build_needed:
-            print("=== building %s hash %s ===" % (pb.to_name(), package_hash))
+            print("=> building %s to %s" % (pb.to_name(), install_dir))
             try:
                 with self.create_builder(pb.to_name() + "-" + uuid.uuid4().hex, tmp=True) as builder:
                     # Fetch package
