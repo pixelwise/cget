@@ -312,7 +312,7 @@ class CGetPrefix:
             testing = test or test_all
             installable = not dependent.test or dependent.test == testing
             if installable: 
-                self.install(
+                result = self.install(
                     dependent.of(pb),
                     test_all=test_all,
                     generator=generator,
@@ -320,6 +320,7 @@ class CGetPrefix:
                     use_build_cache=use_build_cache,
                     recipe_deps_only=recipe_deps_only
                 )
+                print(result)
 
     def get_dependents(self, pb, src_dir):
         if pb.requirements:
@@ -356,8 +357,10 @@ class CGetPrefix:
                 self.link(pb)
                 return "Linking package {}".format(pb.to_name())
         if os.path.exists(pkg_dir): 
-            if update: self.remove(pb)
-            else: return "Package {} already installed".format(pb.to_name())
+            if update:
+                self.remove(pb)
+            else:
+                return "Package {} already installed".format(pb.to_name())
         package_hash = self.hash_pkg(pb)
         self.log("package %s hash %s" % (pb.to_name(), package_hash))
         pkg_install_dir = self.get_package_directory(pb.to_fname(), 'install')
@@ -385,7 +388,7 @@ class CGetPrefix:
                     print("retreived Package {} from cache".format(pb.to_name()))
                     build_needed = False
         if build_needed:
-            print("=== building %s ===" % pb.to_name())
+            print("=== building %s hash %s ===" % (pb.to_name(), package_hash))
             try:
                 with self.create_builder(pb.to_name() + "-" + uuid.uuid4().hex, tmp=True) as builder:
                     # Fetch package
