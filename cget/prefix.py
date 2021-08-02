@@ -297,9 +297,6 @@ class CGetPrefix:
                     result += ps
             return result
 
-    def write_parent(self, pb, track=True):
-        if track and pb.parent is not None: util.mkfile(self.get_deps_directory(pb.to_fname()), pb.parent, pb.parent)
-
     def install_deps(
         self,
         pb,
@@ -312,7 +309,6 @@ class CGetPrefix:
         recipe_deps_only=False
     ):
         for dependent in self.get_dependents(pb, src_dir):
-            transient = dependent.test or dependent.build
             testing = test or test_all
             installable = not dependent.test or dependent.test == testing
             if installable: 
@@ -320,7 +316,6 @@ class CGetPrefix:
                     dependent.of(pb),
                     test_all=test_all,
                     generator=generator,
-                    track=not transient,
                     insecure=insecure,
                     use_build_cache=use_build_cache,
                     recipe_deps_only=recipe_deps_only
@@ -338,7 +333,7 @@ class CGetPrefix:
         return os.path.realpath(self.get_package_directory(pb.to_fname(), 'install'))
 
     @returns(six.string_types)
-    @params(pb=PACKAGE_SOURCE_TYPES, test=bool, test_all=bool, update=bool, track=bool)
+    @params(pb=PACKAGE_SOURCE_TYPES, test=bool, test_all=bool, update=bool)
     def install(
         self,
         pb,
@@ -346,7 +341,6 @@ class CGetPrefix:
         test_all=False,
         generator=None,
         update=False,
-        track=True,
         insecure=False,
         use_build_cache=False,
         recipe_deps_only=False
@@ -360,10 +354,8 @@ class CGetPrefix:
             if update: shutil.rmtree(unlink_dir)
             else:
                 self.link(pb)
-                self.write_parent(pb, track=track)
                 return "Linking package {}".format(pb.to_name())
         if os.path.exists(pkg_dir): 
-            self.write_parent(pb, track=track)
             if update: self.remove(pb)
             else: return "Package {} already installed".format(pb.to_name())
         package_hash = self.hash_pkg(pb)
@@ -498,7 +490,6 @@ class CGetPrefix:
             except:
                 shutil.rmtree(pkg_dir)
                 raise
-        self.write_parent(pb, track=track)
         return "Successfully installed {}".format(pb.to_name())
 
     @returns(six.string_types)
