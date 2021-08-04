@@ -100,12 +100,14 @@ def write_to(file, lines):
 
 def mkdir(p, fix_permissions = False):
     if not os.path.exists(p):
+        fix_dir = None
         if fix_permissions:
             fix_dir = p
             while not os.path.exists(os.path.dirname(fix_dir)):
                 fix_dir = os.path.dirname(fix_dir)
-            fix_cache_permissions_recursive(fix_dir)
         os.makedirs(p)
+        if fix_dir is not None:
+            fix_cache_permissions_recursive(fix_dir)
     return p
 
 def mkfile(d, file, content, always_write=True):

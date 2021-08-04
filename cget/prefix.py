@@ -131,8 +131,7 @@ class CGetPrefix:
         cxxflags=None,
         ldflags=None,
         std=None,
-        defines=None,
-        no_global_include=False
+        defines=None
     ):
         set_ = cmake_set
         if_ = cmake_if
