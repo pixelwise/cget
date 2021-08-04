@@ -1,40 +1,36 @@
 import click, os, sys, shutil, json, six, hashlib, ssl, filelock
-
-if sys.version_info[0] < 3:
-    try:
-        import contextlib
-        import lzma
-    except:
-        try:
-            from backports import lzma
-        except:
-            pass
 import tarfile, zipfile
-
-if os.name == 'posix' and sys.version_info[0] < 3:
-    import subprocess32 as subprocess
-else:
-    import subprocess
-
+import subprocess
 import requests
 
 
 class cache_lock(object):
-    def __init__(self):
-        self.umask = os.getenv("CGET_UMASK")
-        self.cache_base_dir = mkdir(get_cache_path())
+    __in_lock = False
+
+    def __init__(self, do_lock = True):
+        self.do_lock = do_lock
+        self.did_lock = False
+        if self.do_lock:
+            self.umask = os.getenv("CGET_UMASK")
+            self.cache_base_dir = mkdir(get_cache_path())
 
     def __enter__(self):
-        if self.umask:
-            self.old_umask = os.umask(int(self.umask, 8))
-        self.file_lock = filelock.FileLock(os.path.join(self.cache_base_dir, "lock"))
-        self.file_lock.acquire()
-        mkdir(self.cache_base_dir)
+        if self.do_lock and not cache_lock.__in_lock:
+            self.did_lock = True
+            cache_lock.__in_lock = True
+            if self.umask:
+                self.old_umask = os.umask(int(self.umask, 8))
+            self.file_lock = filelock.FileLock(os.path.join(self.cache_base_dir, "lock"))
+            self.file_lock.acquire()
+            mkdir(self.cache_base_dir)
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.file_lock.release()
-        if self.umask:
-            os.umask(self.old_umask)
+        if self.did_lock:
+            self.file_lock.release()
+            if self.umask:
+                os.umask(self.old_umask)
+            self.did_lock = False
+            cache_lock.__in_lock = False
 
 
 def to_bool(value):
@@ -102,8 +98,13 @@ def write_to(file, lines):
         with open(file, 'w') as f:
             f.writelines(content)
 
-def mkdir(p):
+def mkdir(p, fix_permissions = False):
     if not os.path.exists(p):
+        if fix_permissions:
+            fix_dir = p
+            while not os.path.exists(os.path.dirname(fix_dir)):
+                fix_dir = os.path.dirname(fix_dir)
+            fix_cache_permissions_recursive(fix_dir)
         os.makedirs(p)
     return p
 
@@ -148,18 +149,16 @@ def adjust_path(p):
     return p
 
 def add_cache_file(key, f):
-    with cache_lock():
-        mkdir(get_cache_path(key))
-        shutil.copy2(f, get_cache_path(key, os.path.basename(f)))
+    mkdir(get_cache_path(key))
+    shutil.copy2(f, get_cache_path(key, os.path.basename(f)))
 
 def get_cache_file(key):
-    with cache_lock():
-        p = get_cache_path(key)
-        if os.path.exists(p):
-            content = list(ls(p))
-            if content:
-                return os.path.join(p, content[0])
-        return None
+    p = get_cache_path(key)
+    if os.path.exists(p):
+        content = list(ls(p))
+        if content:
+            return os.path.join(p, content[0])
+    return None
 
 def delete_dir(path):
     if path is not None and os.path.exists(path): shutil.rmtree(adjust_path(path))
