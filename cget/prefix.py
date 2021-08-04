@@ -138,7 +138,6 @@ class CGetPrefix:
         if_ = cmake_if
         else_ = cmake_else
         append_ = cmake_append
-        yield set_('CGET_PREFIX', self.prefix)
         if toolchain: yield ['include({})'.format(util.quote(os.path.abspath(toolchain)))]
         if cxx: yield set_('CMAKE_CXX_COMPILER', cxx)
         if cc: yield set_('CMAKE_C_COMPILER', cc)
@@ -163,7 +162,6 @@ class CGetPrefix:
             set_('CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS', 'ON', cache='BOOL')
         )
         yield set_('CMAKE_FIND_FRAMEWORK', 'LAST', cache='STRING')
-        yield set_('CMAKE_INSTALL_RPATH', '${CGET_PREFIX}/lib', cache='STRING')
 
 
     def get_path(self, *paths):
