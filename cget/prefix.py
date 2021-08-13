@@ -230,7 +230,7 @@ class CGetPrefix:
         return {
             "recipes" : self.dump_recipes(pkg),
             "system_id" : self.system_id,
-            "toolchain" : util.lines_of_file(util.lines_of_file(self.toolchain))
+            "toolchain" : util.lines_of_file(self.toolchain)
         }
 
 
