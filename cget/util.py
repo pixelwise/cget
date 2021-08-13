@@ -33,6 +33,14 @@ class cache_lock(object):
             cache_lock.__in_lock = False
 
 
+def lines_of_file(path):
+    result = []
+    with open(path, "r") as f:
+        for line in f:
+            result.append(line.strip())
+    return result
+
+
 def to_bool(value):
     x = str(value).lower()
     if x in ("no",  "n", "false", "f", "0", "0.0", "", "none", "[]", "{}"): return False

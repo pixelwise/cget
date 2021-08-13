@@ -1,5 +1,7 @@
 import os, shutil, shlex, six, inspect, click, contextlib, uuid, sys, functools, hashlib
-import distro, platform
+import distro, platform, json
+
+from typing import Dict
 
 from cget.builder import Builder
 from cget.package import fname_to_pkg
@@ -163,6 +165,7 @@ class CGetPrefix:
         yield set_('CMAKE_FIND_FRAMEWORK', 'LAST', cache='STRING')
 
 
+
     def get_path(self, *paths):
         return os.path.join(self.prefix, *paths)
 
@@ -221,6 +224,27 @@ class CGetPrefix:
         else: url = 'https://github.com/{0}/{0}/archive/{1}.tar.gz'.format(p, v)
         if name is None: name = p
         return PackageSource(name=name, url=url)
+
+
+    def dump(self, pkg) -> Dict:
+        return {
+            "recipes" : self.dump_recipes(pkg),
+            "system_id" : self.system_id,
+            "toolchain" : util.lines_of_file(util.lines_of_file(self.toolchain))
+        }
+
+
+    def dump_recipes(self, pkg) -> Dict:
+        recipes = {}
+        pkg_src = self.parse_pkg_src(pkg)
+        recipes[pkg_src.to_name()] = pkg_src.dump()
+        pkg_build = self.parse_pkg_build(pkg)
+        if pkg_build.requirements:
+            for dependency in self.from_file(pkg_build.requirements):
+                dependency_dump = self.dump_recipes(dependency)
+                recipes = {**recipes, **dependency_dump}
+        return recipes
+
 
     def hash_pkg(self, pkg, is_dependency=False):
         pkg_src = self.parse_pkg_src(pkg)
@@ -384,6 +408,7 @@ class CGetPrefix:
                         src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake != None), insecure=insecure)
                         util.mkdir(install_dir, use_build_cache)
                         self.__build(builder, pb, src_dir, install_dir, generator, test or test_all)
+                        json.dump(self.dump(pb), open(os.path.join(install_dir, "manifest.json"), "w"))
                 except:
                     shutil.rmtree(install_dir)
                     raise

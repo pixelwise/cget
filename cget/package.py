@@ -1,4 +1,5 @@
-import base64, copy, argparse, six, dirhash, hashlib
+import base64, copy, argparse, six, dirhash, hashlib, os
+import cget.util as util
 
 def encode_url(url):
     x = six.b(url[url.find('://')+3:])
@@ -36,6 +37,19 @@ class PackageSource:
             return dirhash.dirhash(self.recipe, "sha1")
         elif self.url:
             return hashlib.sha1(self.url.encode("utf-8")).hexdigest()
+        raise Exception("no url or recipe: %s" % self.__dict__)
+
+    def dump(self):
+        if self.recipe:
+            data = {}
+            for  dirpath, dirnames, filenames in os.walk(self.recipe):
+                for filename in filenames:
+                    key = os.path.join(os.path.relpath(dirpath, self.recipe), filename)
+                    fullpath = os.path.join(dirpath, filename)
+                    data[key] = util.lines_of_file(fullpath)
+            return data
+        elif self.url:
+            return self.url
         raise Exception("no url or recipe: %s" % self.__dict__)
 
 def fname_to_pkg(fname):
