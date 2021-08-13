@@ -408,7 +408,7 @@ class CGetPrefix:
                         src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake != None), insecure=insecure)
                         util.mkdir(install_dir, use_build_cache)
                         self.__build(builder, pb, src_dir, install_dir, generator, test or test_all)
-                        json.dump(self.dump(pb), open(os.path.join(install_dir, "manifest.json"), "w"))
+                        json.dump(self.dump(pb), open(os.path.join(install_dir, "manifest.json"), "w"), indent=2)
                 except:
                     shutil.rmtree(install_dir)
                     raise
