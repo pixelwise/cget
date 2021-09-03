@@ -1,3 +1,4 @@
+import subprocess
 import click, os, functools, sys
 
 from cget import __version__
@@ -112,6 +113,30 @@ def archive_all(num_threads):
         CGetPrefix.archive_cached_build(package_name, package_hash)
     executor.map(execute, find_cached_builds(builds_dir))
     executor.shutdown()
+    print("done!")
+
+
+@cli.command(name='publish_all')
+@click.option('-d', '--dest', required=True, help="rsync destination")
+def publish_all(dest):
+    builds_dir = util.get_cache_path("builds")
+    builds_dir_rel = util.get_cache_path(".", "builds")
+    for package_name, package_hash in find_cached_builds(builds_dir):
+        archive_path = os.path.join(builds_dir_rel, package_name, package_hash + ".tar.xz")
+        info_path = os.path.join(builds_dir_rel, package_name, package_hash + ".info")
+        print("publishing %s/%s..." % (package_name, package_hash))
+        def sync(path):
+            if os.path.isfile(path):
+                cmd = [
+                    "rsync",
+                    "-a",
+                    "--relative",
+                    path,
+                    dest
+                ]
+                subprocess.check_call(cmd)
+        sync(archive_path)
+        sync(info_path)
     print("done!")
 
 

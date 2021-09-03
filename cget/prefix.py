@@ -366,8 +366,12 @@ class CGetPrefix:
     def archive_cached_build(package_name, package_hash):
         install_dir = util.get_cache_path("builds", package_name, package_hash)
         archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
+        info_path = util.get_cache_path("builds", package_name, package_hash + ".info")
+        manifest_path = util.get_cache_path("builds", package_name, package_hash, "manifest.json")
         if os.path.isdir(install_dir) and not os.path.isfile(archive_path):
             util.archive(install_dir, archive_path)
+        if os.path.isfile(manifest_path) and not os.path.isfile(info_path):
+            shutil.copy2(manifest_path, info_path)
 
     @staticmethod
     def unarchive_cached_build(package_name, package_hash):
