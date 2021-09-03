@@ -302,24 +302,35 @@ def retrieve_url(url, dst, copy=False, insecure=False, hash=None):
             raise BuildError("Hash doesn't match for {0}: {1} != {2}".format(url, hash_type + ":" + computed, hash))
     return f
 
-def extract_ar(archive, dst, *kwargs):
-    if sys.version_info[0] < 3 and archive.endswith('.xz'):
-        with contextlib.closing(lzma.LZMAFile(archive)) as xz:
-            with tarfile.open(fileobj=xz, *kwargs) as f:
-                f.extractall(dst)
-    elif archive.endswith('.zip'):
+def unarchive(archive, dst):
+    if archive.endswith('.zip'):
         with zipfile.ZipFile(archive,'r') as f:
             f.extractall(dst)
     elif tarfile.is_tarfile(archive):
         if USE_CMAKE_TAR:
             cmd([which('cmake'), '-E', 'tar', 'xzf', os.path.abspath(archive)], cwd=dst)
         else:
-            tarfile.open(archive, *kwargs).extractall(dst)
+            tarfile.open(archive).extractall(dst)
     else:
         # Treat as a single source file
         d = os.path.join(dst, 'header')
         mkdir(d)
         copy_to(archive, d)
+
+def archive(src, archive):
+    tmp = archive + ".tmp"
+    if archive.endswith(".tar.xz"):
+        with tarfile.open(tmp, "w:xz") as f:
+            f.add(src)
+    elif archive.endswith(".tar.gz"):
+        with tarfile.open(tmp, "w:xg") as f:
+            f.add(src)
+    elif archive.endswith(".tar.bz"):
+        with tarfile.open(tmp, "w:bz2") as f:
+            f.add(src)
+    else:
+        raise Exception("unsupported archive format: %s" % archive)
+    os.rename(tmp, archive)
 
 def hash_file(f, t):
     h = hashlib.new(t)

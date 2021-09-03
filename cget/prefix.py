@@ -352,6 +352,36 @@ class CGetPrefix:
     def get_real_install_path(self, pb):
         return os.path.realpath(self.get_package_directory(pb.to_fname(), 'install'))
 
+    def archive_package(self, pb):
+        pb = self.parse_pkg_build(pb)
+        package_hash = self.hash_pkg(pb)
+        self.archive_cached_build(pb.to_name(), package_hash)
+
+    def unarchive_package(self, pb):
+        pb = self.parse_pkg_build(pb)
+        package_hash = self.hash_pkg(pb)
+        self.unarchive_cached_build(pb.to_name(), package_hash)
+
+    @staticmethod
+    def archive_cached_build(package_name, package_hash):
+        install_dir = util.get_cache_path("builds", package_name, package_hash)
+        archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
+        if os.path.isdir(install_dir) and not os.path.isfile(archive_path):
+            util.archive(install_dir, archive_path)
+
+    @staticmethod
+    def unarchive_cached_build(package_name, package_hash):
+        install_dir = util.get_cache_path("builds", package_name, package_hash)
+        archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
+        if not os.path.isdir(install_dir) and os.path.isfile(archive_path):
+            util.unarchive(archive_path, install_dir)
+
+    def fetch(self, pb):
+        pass
+
+    def post(self, pb):
+        pass
+
     @returns(six.string_types)
     @params(pb=PACKAGE_SOURCE_TYPES, test=bool, test_all=bool, update=bool)
     def install(

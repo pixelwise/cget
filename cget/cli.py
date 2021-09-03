@@ -3,6 +3,7 @@ import click, os, functools, sys
 from cget import __version__
 from cget.prefix import CGetPrefix
 from cget.prefix import PackageBuild
+from concurrent.futures import ThreadPoolExecutor
 import cget.util as util
 
 
@@ -75,6 +76,44 @@ def init_command(prefix, toolchain, cc, cxx, cflags, cxxflags, ldflags, std, def
         std=std, 
         defines=defines
     )
+
+def is_hash(s):
+    if len(s) != 40:
+        return False
+    allowed_chars = set("abcdef0123456789ABCDEF")
+    if len(set(s) - allowed_chars) > 0:
+        return False
+    return True
+
+def find_cached_builds(builds_dir, subdir=None):
+    startdir = builds_dir
+    if subdir is not None:
+        startdir = os.path.join(builds_dir, subdir)
+    for entry in os.listdir(startdir):
+        entry_path = os.path.join(startdir, entry)
+        if os.path.isdir(entry_path):
+            next_subdir = entry
+            if subdir is not None:
+                next_subdir = os.path.join(subdir, entry)
+            if is_hash(entry):
+                yield subdir, entry
+            else:
+                yield from find_cached_builds(builds_dir, next_subdir)
+
+
+@cli.command(name='archive_all')
+@click.option('-n', '--num-threads', default=4, help="number of threads")
+def archive_all(num_threads):
+    builds_dir = util.get_cache_path("builds")
+    executor = ThreadPoolExecutor(num_threads)
+    def execute(item):
+        package_name, package_hash = item
+        print("archiving %s/%s..." % (package_name, package_hash))
+        CGetPrefix.archive_cached_build(package_name, package_hash)
+    executor.map(execute, find_cached_builds(builds_dir))
+    executor.shutdown()
+    print("done!")
+
 
 @cli.command(name='install')
 @use_prefix

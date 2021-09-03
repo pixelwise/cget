@@ -50,7 +50,7 @@ class Builder:
         f = util.retrieve_url(url, self.top_dir, copy=copy, insecure=insecure, hash=hash)
         if os.path.isfile(f):
             click.echo("Extracting archive {0} ...".format(f))
-            util.extract_ar(archive=f, dst=self.top_dir)
+            util.unarchive(archive=f, dst=self.top_dir)
         return next(util.get_dirs(self.top_dir))
 
     def configure(self, src_dir, defines=None, generator=None, install_prefix=None, test=True, variant=None, env=None):
