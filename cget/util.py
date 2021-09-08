@@ -262,8 +262,9 @@ def symlink_to(src, dst_dir):
 def download_to(url, download_dir, insecure=False):
     name = url.split('/')[-1]
     file_name = os.path.join(download_dir, name)
+    file_name_tmp = file_name + ".tmp"
     click.echo("Downloading {0}".format(url))
-    with open(file_name, "wb") as f:
+    with open(file_name_tmp, "wb") as f:
         response = requests.get(url, stream=True)
         response.raise_for_status()
         total_length = response.headers.get('content-length')
@@ -277,8 +278,9 @@ def download_to(url, download_dir, insecure=False):
                     bar.pos += len(data)
                     bar.update(0)
                 bar.update(total_length)
-    if not os.path.exists(file_name):
+    if not os.path.exists(file_name_tmp):
         raise BuildError("Download failed for: {0}".format(url))
+    os.rename(file_name_tmp, file_name)
     return file_name
 
 def transfer_to(f, dst, copy=False):

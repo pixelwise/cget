@@ -1,5 +1,5 @@
 import os, shutil, shlex, six, inspect, click, contextlib, uuid, sys, functools, hashlib
-import distro, platform, json
+import distro, platform, json, subprocess
 
 from typing import Dict
 
@@ -98,7 +98,6 @@ class CGetPrefix:
         self.prefix = os.path.abspath(prefix or 'cget')
         self.verbose = verbose
         self.build_path_var = build_path
-        self.cmd = util.Commander(paths=[self.get_path('bin')], env=self.get_env(), verbose=self.verbose)
         self.toolchain = self.write_cmake()
         with open(self.toolchain, "rb") as toolchain_file:
             self.toolchain_hash = hashlib.sha1(toolchain_file.read()).hexdigest()
@@ -111,13 +110,6 @@ class CGetPrefix:
     def check(self, f, *args):
         if self.verbose and not f(*args):
             raise util.BuildError('ASSERTION FAILURE: ', ' '.join([str(arg) for arg in args]))
-
-
-    def get_env(self):
-        return {
-            'LD_LIBRARY_PATH': self.get_path('lib'),
-            'PKG_CONFIG_PATH': self.pkg_config_path()
-        }
 
     def write_cmake(self, always_write=False, **kwargs):
         return util.mkfile(self.get_private_path(), 'cget.cmake', self.generate_cmake_toolchain(**kwargs), always_write=always_write)
@@ -225,14 +217,12 @@ class CGetPrefix:
         if name is None: name = p
         return PackageSource(name=name, url=url)
 
-
     def dump(self, pkg) -> Dict:
         return {
             "recipes" : self.dump_recipes(pkg),
             "system_id" : self.system_id,
             "toolchain" : util.lines_of_file(self.toolchain)
         }
-
 
     def dump_recipes(self, pkg) -> Dict:
         recipes = {}
@@ -244,7 +234,6 @@ class CGetPrefix:
                 dependency_dump = self.dump_recipes(dependency)
                 recipes = {**recipes, **dependency_dump}
         return recipes
-
 
     def hash_pkg(self, pkg, is_dependency=False):
         pkg_src = self.parse_pkg_src(pkg)
@@ -352,20 +341,18 @@ class CGetPrefix:
     def get_real_install_path(self, pb):
         return os.path.realpath(self.get_package_directory(pb.to_fname(), 'install'))
 
-    def archive_package(self, pb):
-        pb = self.parse_pkg_build(pb)
-        package_hash = self.hash_pkg(pb)
-        self.archive_cached_build(pb.to_name(), package_hash)
+    @staticmethod
+    def make_archive_path(package_name, package_hash):
+        return util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
 
-    def unarchive_package(self, pb):
-        pb = self.parse_pkg_build(pb)
-        package_hash = self.hash_pkg(pb)
-        self.unarchive_cached_build(pb.to_name(), package_hash)
+    @staticmethod
+    def make_install_dir(package_name, package_hash):
+        return util.get_cache_path("builds", package_name, package_hash)
 
     @staticmethod
     def archive_cached_build(package_name, package_hash):
-        install_dir = util.get_cache_path("builds", package_name, package_hash)
-        archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
+        install_dir = CGetPrefix.make_install_dir(package_name, package_hash)
+        archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
         info_path = util.get_cache_path("builds", package_name, package_hash + ".info")
         manifest_path = util.get_cache_path("builds", package_name, package_hash, "manifest.json")
         if os.path.isdir(install_dir) and not os.path.isfile(archive_path):
@@ -375,16 +362,40 @@ class CGetPrefix:
 
     @staticmethod
     def unarchive_cached_build(package_name, package_hash):
-        install_dir = util.get_cache_path("builds", package_name, package_hash)
-        archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
+        install_dir = CGetPrefix.make_install_dir(package_name, package_hash)
+        archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
         if not os.path.isdir(install_dir) and os.path.isfile(archive_path):
             util.unarchive(archive_path, install_dir)
 
-    def fetch(self, pb):
-        pass
+    @staticmethod
+    def fetch_cached_build(package_name, package_hash, http_src):
+        archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
+        install_dir = CGetPrefix.make_install_dir(package_name, package_hash)
+        if not os.path.isdir(install_dir) and not os.path.isfile(archive_path):
+            if not http_src.endswith("/"):
+                http_src += "/"
+            archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
+            url = http_src + "/" + package_name + "/" + package_hash + ".tar.xz"
+            util.download_to(url, archive_path)
 
-    def post(self, pb):
-        pass
+    @staticmethod
+    def publish_cached_build(package_name, package_hash, rsync_dest):
+        builds_dir_rel = util.get_cache_path(".", "builds")
+        archive_path = os.path.join(builds_dir_rel, package_name, package_hash + ".tar.xz")
+        info_path = os.path.join(builds_dir_rel, package_name, package_hash + ".info")
+        print("publishing %s/%s..." % (package_name, package_hash))
+        def sync(path):
+            if os.path.isfile(path):
+                cmd = [
+                    "rsync",
+                    "-a",
+                    "--relative",
+                    path,
+                    rsync_dest
+                ]
+                subprocess.check_call(cmd)
+            sync(archive_path)
+            sync(info_path)
 
     @returns(six.string_types)
     @params(pb=PACKAGE_SOURCE_TYPES, test=bool, test_all=bool, update=bool)
@@ -394,26 +405,16 @@ class CGetPrefix:
         test=False,
         test_all=False,
         generator=None,
-        update=False,
         insecure=False,
-        use_build_cache=False
+        use_build_cache=False,
+        rsync_dest=None,
+        http_src=None
     ):
         pb = self.parse_pkg_build(pb)
         pkg_dir = self.get_package_directory(pb.to_fname())
         unlink_dir = self.get_unlink_directory(pb.to_fname())
         package_hash = self.hash_pkg(pb)
         print("=> installing %s hash %s" % (pb.to_name(), package_hash))
-        # If its been unlinked, then link it in
-        if os.path.exists(unlink_dir):
-            if update: shutil.rmtree(unlink_dir)
-            else:
-                self.link(pb)
-                return "=> Relinking package {}".format(pb.to_name())
-        if os.path.exists(pkg_dir): 
-            if update:
-                self.remove(pb)
-            else:
-                return "=> Package {} already installed".format(pb.to_name())
         self.log("package %s hash %s" % (pb.to_name(), package_hash))
         pkg_install_dir = self.get_package_directory(pb.to_fname(), 'install')
         if use_build_cache:
@@ -433,9 +434,15 @@ class CGetPrefix:
             use_build_cache=use_build_cache
         )
         with util.cache_lock(use_build_cache) as cache_lock:
-            if not update and use_build_cache and os.path.exists(install_dir):
-                print("=> retreived Package {} from cache".format(pb.to_name()))
-            else:
+            using_cache = False
+            if use_build_cache:
+                if http_src is not None:
+                    self.fetch_cached_build(pb.to_name(), package_hash, http_src)
+                self.unarchive_cached_build(pb.to_name(), package_hash)
+                if os.path.exists(install_dir):
+                    print("=> retreived Package {} from cache".format(pb.to_name()))
+                    using_cache = True
+            if not using_cache:
                 print("=> building %s to %s" % (pb.to_name(), install_dir))
                 try:
                     with self.create_builder(pb.to_name() + "-" + uuid.uuid4().hex, tmp=True) as builder:
@@ -443,6 +450,9 @@ class CGetPrefix:
                         util.mkdir(install_dir, use_build_cache)
                         self.__build(builder, pb, src_dir, install_dir, generator, test or test_all)
                         json.dump(self.dump(pb), open(os.path.join(install_dir, "manifest.json"), "w"), indent=2)
+                    if rsync_dest is not None:
+                        self.archive_cached_build(pb.to_name(), package_hash)
+                        self.publish_cached_build(pb.to_name(), package_hash, rsync_dest)
                 except:
                     shutil.rmtree(install_dir)
                     raise
@@ -522,84 +532,6 @@ class CGetPrefix:
         if test:
             builder.test(variant=pb.variant)
         builder.build(target='install', variant=pb.variant, env=build_env)
-
-    @returns(six.string_types)
-    @params(pb=PACKAGE_SOURCE_TYPES)
-    def ignore(self, pb):
-        pb = self.parse_pkg_build(pb)
-        pkg_dir = self.get_package_directory(pb.to_fname())
-        # If package doesn't exist
-        if not os.path.exists(pkg_dir):
-            util.mkfile(pkg_dir, "ignore", "ignore")
-            return "Ignore package {}".format(pb.to_name())
-        else:
-            return "Package {} already installed".format(pb.to_name())
-
-    @params(pb=PACKAGE_SOURCE_TYPES, test=bool)
-    def build(self, pb, test=False, target=None, generator=None):
-        pb = self.parse_pkg_build(pb)
-        src_dir = pb.pkg_src.get_src_dir()
-        if os.path.exists(os.path.join(src_dir, 'dev-requirements.txt')):
-            pb.requirements = os.path.join(src_dir, 'dev-requirements.txt')
-        elif os.path.exists(os.path.join(src_dir, 'requirements.txt')):
-            pb.requirements = os.path.join(src_dir, 'requirements.txt')
-        with self.create_builder(pb.to_fname()) as builder:
-            # Install any dependencies first
-            self.install_deps(pb, src_dir, generator=generator, test=test)
-            # Configure and build
-            if not builder.exists: builder.configure(src_dir, defines=pb.define, generator=generator, test=test, variant=pb.variant)
-            builder.build(variant=pb.variant, target=target)
-            # Run tests if enabled
-            if test: builder.test(variant=pb.variant)
-
-    @params(pb=PACKAGE_SOURCE_TYPES)
-    def build_path(self, pb):
-        pb = self.parse_pkg_build(pb)
-        return self.get_builder_path(pb.to_fname(), 'build')
-
-    @params(pb=PACKAGE_SOURCE_TYPES)
-    def build_clean(self, pb):
-        pb = self.parse_pkg_build(pb)
-        p = self.get_builder_path(pb.to_fname())
-        if os.path.exists(p): shutil.rmtree(p)
-
-    @params(pb=PACKAGE_SOURCE_TYPES)
-    def build_configure(self, pb):
-        pb = self.parse_pkg_build(pb)
-        src_dir = pb.pkg_src.get_src_dir()
-        if 'ccmake' in self.cmd:
-            self.cmd.ccmake([src_dir], cwd=self.build_path(pb))
-        elif 'cmake-gui' in self.cmd:
-            self.cmd.cmake_gui([src_dir], cwd=self.build_path(pb))
-
-    @params(pkg=PACKAGE_SOURCE_TYPES)
-    def remove(self, pkg):
-        self.unlink(pkg, delete=True)
-
-    @params(pkg=PACKAGE_SOURCE_TYPES)
-    def unlink(self, pkg, delete=False):
-        pkg = self.parse_pkg_src(pkg)
-        pkg_dir = self.get_package_directory(pkg.to_fname())
-        unlink_dir = self.get_unlink_directory(pkg.to_fname())
-        self.log("Unlink:", pkg_dir)
-        if os.path.exists(pkg_dir):
-            if delete: util.delete_dir(pkg_dir)
-            else:
-                util.mkdir(self.get_unlink_directory())
-                os.rename(pkg_dir, unlink_dir)
-
-    @params(pkg=PACKAGE_SOURCE_TYPES)
-    def link(self, pkg):
-        pkg = self.parse_pkg_src(pkg)
-        pkg_dir = self.get_package_directory(pkg.to_fname())
-        unlink_dir = self.get_unlink_directory(pkg.to_fname())
-        if os.path.exists(unlink_dir):
-            util.mkdir(self.get_package_directory())
-            os.rename(unlink_dir, pkg_dir)
-        # Relink dependencies
-        for dep in util.ls(self.get_unlink_directory(), os.path.isdir):
-            ls = util.ls(self.get_unlink_deps_directory(dep), os.path.isfile)
-            if pkg.to_fname() in ls: self.link(dep)
 
     def _list_files(self, pkg=None, top=True):
         if pkg is None:
