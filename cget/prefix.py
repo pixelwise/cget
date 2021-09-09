@@ -374,8 +374,9 @@ class CGetPrefix:
         if not os.path.isdir(install_dir) and not os.path.isfile(archive_path):
             if not http_src.endswith("/"):
                 http_src += "/"
+            print("fetching %s/%s from %s..." % (package_name, package_hash, http_src))
             archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
-            url = http_src + "/" + package_name + "/" + package_hash + ".tar.xz"
+            url = http_src + "/builds/" + package_name + "/" + package_hash + ".tar.xz"
             util.download_to(url, archive_path)
 
     @staticmethod
@@ -383,7 +384,7 @@ class CGetPrefix:
         builds_dir_rel = util.get_cache_path(".", "builds")
         archive_path = os.path.join(builds_dir_rel, package_name, package_hash + ".tar.xz")
         info_path = os.path.join(builds_dir_rel, package_name, package_hash + ".info")
-        print("publishing %s/%s..." % (package_name, package_hash))
+        print("publishing %s/%s to %s..." % (package_name, package_hash, rsync_dest))
         def sync(path):
             if os.path.isfile(path):
                 cmd = [
@@ -394,8 +395,8 @@ class CGetPrefix:
                     rsync_dest
                 ]
                 subprocess.check_call(cmd)
-            sync(archive_path)
-            sync(info_path)
+        sync(archive_path)
+        sync(info_path)
 
     @returns(six.string_types)
     @params(pb=PACKAGE_SOURCE_TYPES, test=bool, test_all=bool, update=bool)
