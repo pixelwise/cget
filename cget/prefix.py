@@ -418,10 +418,11 @@ class CGetPrefix:
         print("=> installing %s hash %s" % (pb.to_name(), package_hash))
         self.log("package %s hash %s" % (pb.to_name(), package_hash))
         pkg_install_dir = self.get_package_directory(pb.to_fname(), 'install')
+        if os.path.exists(pkg_install_dir):
+            return "package %s already installed" % pb.to_name()
         if use_build_cache:
             install_dir = util.get_cache_path("builds", pb.to_name(), package_hash)
             util.mkdir(pkg_dir)
-            os.symlink(install_dir, pkg_install_dir)
             self.log("using cached install dir '%s'" % install_dir)
         else:
             install_dir = pkg_install_dir
@@ -457,6 +458,7 @@ class CGetPrefix:
                 except:
                     shutil.rmtree(install_dir)
                     raise
+            os.symlink(install_dir, pkg_install_dir)
         return "Successfully installed {}".format(pb.to_name())
 
     def __build(self, builder, pb, src_dir, install_dir, generator, test):
