@@ -1,6 +1,6 @@
 import os, shutil, shlex, six, inspect, click, contextlib, uuid, sys, functools, hashlib
 import distro, platform, json, subprocess
-
+from pathlib import Path
 from typing import Dict
 
 from cget.builder import Builder
@@ -98,6 +98,7 @@ class CGetPrefix:
         self.prefix = os.path.abspath(prefix or 'cget')
         self.verbose = verbose
         self.build_path_var = build_path
+        self.cmd = util.Commander(verbose=self.verbose)
         self.toolchain = self.write_cmake()
         with open(self.toolchain, "rb") as toolchain_file:
             self.toolchain_hash = hashlib.sha1(toolchain_file.read()).hexdigest()
@@ -356,7 +357,7 @@ class CGetPrefix:
         info_path = util.get_cache_path("builds", package_name, package_hash + ".info")
         manifest_path = util.get_cache_path("builds", package_name, package_hash, "manifest.json")
         if os.path.isdir(install_dir) and not os.path.isfile(archive_path):
-            util.archive(install_dir, archive_path)
+            util.archive(install_dir, archive_path, Path(install_dir).parent)
         if os.path.isfile(manifest_path) and not os.path.isfile(info_path):
             shutil.copy2(manifest_path, info_path)
 
@@ -365,7 +366,9 @@ class CGetPrefix:
         install_dir = CGetPrefix.make_install_dir(package_name, package_hash)
         archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
         if not os.path.isdir(install_dir) and os.path.isfile(archive_path):
-            util.unarchive(archive_path, install_dir)
+            target = Path(install_dir).parent
+            print("- unarchiving archive %s to %s -" % (install_dir, target))
+            util.unarchive(archive_path, target)
 
     @staticmethod
     def fetch_cached_build(package_name, package_hash, http_src):
@@ -374,7 +377,7 @@ class CGetPrefix:
         if not os.path.isdir(install_dir) and not os.path.isfile(archive_path):
             if not http_src.endswith("/"):
                 http_src += "/"
-            print("fetching %s/%s from %s..." % (package_name, package_hash, http_src))
+            print("- fetching %s/%s from %s..." % (package_name, package_hash, http_src))
             archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
             url = http_src + "/builds/" + package_name + "/" + package_hash + ".tar.xz"
             util.download_to(url, archive_path)
@@ -384,7 +387,7 @@ class CGetPrefix:
         builds_dir_rel = util.get_cache_path(".", "builds")
         archive_path = os.path.join(builds_dir_rel, package_name, package_hash + ".tar.xz")
         info_path = os.path.join(builds_dir_rel, package_name, package_hash + ".info")
-        print("publishing %s/%s to %s..." % (package_name, package_hash, rsync_dest))
+        print("- publishing %s/%s to %s..." % (package_name, package_hash, rsync_dest))
         def sync(path):
             if os.path.isfile(path):
                 cmd = [
@@ -438,6 +441,7 @@ class CGetPrefix:
         with util.cache_lock(use_build_cache) as cache_lock:
             using_cache = False
             if use_build_cache:
+                print("- using cache -")
                 if http_src is not None:
                     self.fetch_cached_build(pb.to_name(), package_hash, http_src)
                 self.unarchive_cached_build(pb.to_name(), package_hash)

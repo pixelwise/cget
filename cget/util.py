@@ -1,3 +1,4 @@
+from posixpath import basename
 import click, os, sys, shutil, json, six, hashlib, ssl, filelock
 import tarfile, zipfile
 import subprocess
@@ -319,17 +320,22 @@ def unarchive(archive, dst):
         mkdir(d)
         copy_to(archive, d)
 
-def archive(src, archive):
+def archive(src, archive, base_dir = None):
     tmp = archive + ".tmp"
+    arcname = None
+    if base_dir is not None:
+        base_dir = os.path.abspath(base_dir)
+        arcname = os.path.abspath(src).removeprefix(base_dir).lstrip("/")
+    print("src %s archive %s base_dir %s arcname %s" % (src, archive, base_dir, arcname))
     if archive.endswith(".tar.xz"):
         with tarfile.open(tmp, "w:xz") as f:
-            f.add(src)
+            f.add(src, arcname=arcname)
     elif archive.endswith(".tar.gz"):
         with tarfile.open(tmp, "w:xg") as f:
-            f.add(src)
+            f.add(src, arcname=arcname)
     elif archive.endswith(".tar.bz"):
         with tarfile.open(tmp, "w:bz2") as f:
-            f.add(src)
+            f.add(src, arcname=arcname)
     else:
         raise Exception("unsupported archive format: %s" % archive)
     os.rename(tmp, archive)
