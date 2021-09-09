@@ -380,7 +380,7 @@ class CGetPrefix:
             print("- fetching %s/%s from %s..." % (package_name, package_hash, http_src))
             archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
             url = http_src + "/builds/" + package_name + "/" + package_hash + ".tar.xz"
-            util.download_to(url, archive_path)
+            util.download_to(url, Path(archive_path).parent)
 
     @staticmethod
     def publish_cached_build(package_name, package_hash, rsync_dest):

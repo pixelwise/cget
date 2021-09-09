@@ -117,7 +117,7 @@ def archive_all(num_threads):
 
 
 @cli.command(name='publish_all')
-@click.option('-d', '--dest', required=True, help="rsync destination")
+@click.option('-d', '--dest', envvar='CGET_RSYNC_DST', required=True, help="rsync destination")
 def publish_all(dest):
     builds_dir = util.get_cache_path("builds")
     for package_name, package_hash in find_cached_builds(builds_dir):
