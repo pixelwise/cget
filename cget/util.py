@@ -320,12 +320,17 @@ def unarchive(archive, dst):
         mkdir(d)
         copy_to(archive, d)
 
+def removeprefix(s, p):
+    if s.startswith(p):
+        s = s[len(p):]
+    return s
+
 def archive(src, archive, base_dir = None):
     tmp = archive + ".tmp"
     arcname = None
     if base_dir is not None:
         base_dir = os.path.abspath(base_dir)
-        arcname = os.path.abspath(src).removeprefix(base_dir).lstrip("/")
+        arcname = removeprefix(os.path.abspath(src), base_dir).lstrip("/")
     print("src %s archive %s base_dir %s arcname %s" % (src, archive, base_dir, arcname))
     if archive.endswith(".tar.xz"):
         with tarfile.open(tmp, "w:xz") as f:
