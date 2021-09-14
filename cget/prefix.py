@@ -382,7 +382,13 @@ class CGetPrefix:
             base_dir = Path(archive_path).parent
             url = http_src + "/builds/" + package_name + "/" + package_hash + ".tar.xz"
             util.mkdir(base_dir, True)
-            util.download_to(url, base_dir)
+            try:
+                util.download_to(url, base_dir)
+                print("- could fetch")
+                return True
+            except Exception as e:
+                print("- could not fetch: %s" % e)
+                return False
 
     @staticmethod
     def publish_cached_build(package_name, package_hash, rsync_dest):
