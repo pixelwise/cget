@@ -3,6 +3,9 @@ import click, os, sys, shutil, json, six, hashlib, ssl, filelock
 import tarfile, zipfile
 import subprocess
 import requests
+import shutil
+import io
+from typing import List
 
 
 class cache_lock(object):
@@ -414,6 +417,30 @@ def actual_path(path, start=None):
     if os.path.isabs(path):
         return path
     return os.path.normpath(os.path.join(start or os.getcwd(), os.path.expanduser(path)))
+
+def sign_files(files: List[str]=[], strings:List[str]=[], output_path=str):
+    out = io.StringIO()
+    err = io.StringIO()
+    cmd = ["gpg", "--output", output_path, "--sign", "-"]
+    print(cmd)
+    process = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=out,
+        stderr=err
+    )
+    assert(process.stdin is not None)
+    for filepath in files:
+        with open(filepath, "rb") as f:
+            shutil.copyfileobj(f, process.stdin)
+    for string in strings:
+        process.stdin.write(string.encode("utf-8"))
+    process.stdin.close()
+    result = process.wait()
+    print(err.getvalue())
+    print(err.getvalue())    
+    if result != 0:
+        raise Exception("gpg failed, out: %s err: %s" % (out.getvalue(), err.getvalue()))
 
 class Commander:
     def __init__(self, paths=None, env=None, verbose=False):

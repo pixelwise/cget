@@ -1,7 +1,7 @@
 import os, shutil, shlex, six, inspect, click, contextlib, uuid, sys, functools, hashlib
 import distro, platform, json, subprocess
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 from cget.builder import Builder
 from cget.package import fname_to_pkg
@@ -343,8 +343,20 @@ class CGetPrefix:
         return util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
 
     @staticmethod
+    def make_signature_path(package_name, package_hash):
+        return util.get_cache_path("builds", package_name, package_hash + ".sig")
+
+    @staticmethod
     def make_install_dir(package_name, package_hash):
         return util.get_cache_path("builds", package_name, package_hash)
+
+    @staticmethod
+    def package_archive_filenames(package_hash) -> List[str]:
+        return [
+            package_hash + ".sig",
+            package_hash + ".info",
+            package_hash + ".tar.xz",
+        ]
 
     @staticmethod
     def archive_cached_build(package_name, package_hash):
@@ -352,10 +364,16 @@ class CGetPrefix:
         archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
         info_path = util.get_cache_path("builds", package_name, package_hash + ".info")
         manifest_path = util.get_cache_path("builds", package_name, package_hash, "manifest.json")
-        if os.path.isdir(install_dir) and not os.path.isfile(archive_path):
-            util.archive(install_dir, archive_path, Path(install_dir).parent)
-        if os.path.isfile(manifest_path) and not os.path.isfile(info_path):
-            shutil.copy2(manifest_path, info_path)
+        if os.path.isfile(manifest_path) and os.path.isdir(install_dir):
+            if not os.path.isfile(info_path):
+                shutil.copy2(manifest_path, info_path)
+            if not os.path.isfile(archive_path):
+                util.archive(install_dir, archive_path, Path(install_dir).parent)
+            util.sign_files(
+                files=[info_path, archive_path],
+                strings=[package_hash],
+                output_path=CGetPrefix.make_signature_path(package_name, package_hash)
+            )
 
     @staticmethod
     def unarchive_cached_build(package_name, package_hash):
@@ -368,20 +386,19 @@ class CGetPrefix:
 
     @staticmethod
     def fetch_cached_build(package_name, package_hash, http_src):
-        archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
+        filenames = CGetPrefix.package_archive_filenames(package_hash)
         install_dir = CGetPrefix.make_install_dir(package_name, package_hash)
-        if not os.path.isdir(install_dir) and not os.path.isfile(archive_path):
+        base_dir = Path(install_dir).parent
+        filepaths = [os.path.join(base_dir, filename) for filename in filenames]
+        if not os.path.isdir(install_dir) and not all([os.path.isfile(filepath) for filepath in filepaths]):
             if not http_src.endswith("/"):
                 http_src += "/"
             print("- fetching %s/%s from %s..." % (package_name, package_hash, http_src))
-            archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
-            base_dir = Path(archive_path).parent
-            archive_url = http_src + "/builds/" + package_name + "/" + package_hash + ".tar.xz"
-            info_url = http_src + "/builds/" + package_name + "/" + package_hash + ".info"
+            urls = [http_src + "/builds/" + package_name + "/" + filename for filename in filenames]
             util.mkdir(base_dir, True)
             try:
-                util.download_to(info_url, base_dir)
-                util.download_to(archive_url, base_dir)
+                for url in urls:
+                    util.download_to(url, base_dir)
                 print("- could fetch")
                 return True
             except Exception as e:

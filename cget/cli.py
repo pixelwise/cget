@@ -110,7 +110,11 @@ def archive_all(num_threads):
     def execute(item):
         package_name, package_hash = item
         print("archiving %s/%s..." % (package_name, package_hash))
-        CGetPrefix.archive_cached_build(package_name, package_hash)
+        try:
+            CGetPrefix.archive_cached_build(package_name, package_hash)
+            print("archived %s/%s..." % (package_name, package_hash))
+        except Exception as e:
+            print("archiving %s/%s failed: %s" % (package_name, package_hash, e))
     executor.map(execute, find_cached_builds(builds_dir))
     executor.shutdown()
     print("done!")
