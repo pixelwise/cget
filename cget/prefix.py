@@ -218,12 +218,16 @@ class CGetPrefix:
         if name is None: name = p
         return PackageSource(name=name, url=url)
 
-    def dump(self, pkg) -> Dict:
-        return {
-            "recipes" : self.dump_recipes(pkg),
-            "system_id" : self.system_id,
-            "toolchain" : util.lines_of_file(self.toolchain)
-        }
+    def dumps(self, pkg) -> bytes:
+        return json.dumps(
+            {
+                "recipes" : self.dump_recipes(pkg),
+                "system_id" : self.system_id,
+                "toolchain" : util.lines_of_file(self.toolchain),
+                "cache_path" : util.get_cache_path(),
+            },
+            indent = 2
+        ).encode("utf-8")
 
     def dump_recipes(self, pkg) -> Dict:
         recipes = {}
@@ -236,16 +240,8 @@ class CGetPrefix:
                 recipes = {**recipes, **dependency_dump}
         return recipes
 
-    def hash_pkg(self, pkg, is_dependency=False):
-        pkg_src = self.parse_pkg_src(pkg)
-        result = pkg_src.calc_hash()
-        pkg_build = self.parse_pkg_build(pkg)
-        if pkg_build.requirements:
-            for dependency in self.from_file(pkg_build.requirements):
-                result = hashlib.sha1((result + self.hash_pkg(dependency, True)).encode("utf-8")).hexdigest()
-        if not is_dependency:
-            result = hashlib.sha1((result + self.toolchain_hash + self.system_id).encode("utf-8")).hexdigest()
-        return result
+    def hash_pkg(self, pkg):
+        return hashlib.sha1(self.dumps(pkg))
 
     @returns(PackageSource)
     @params(pkg=PACKAGE_SOURCE_TYPES)
@@ -380,10 +376,12 @@ class CGetPrefix:
             print("- fetching %s/%s from %s..." % (package_name, package_hash, http_src))
             archive_path = util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
             base_dir = Path(archive_path).parent
-            url = http_src + "/builds/" + package_name + "/" + package_hash + ".tar.xz"
+            archive_url = http_src + "/builds/" + package_name + "/" + package_hash + ".tar.xz"
+            info_url = http_src + "/builds/" + package_name + "/" + package_hash + ".info"
             util.mkdir(base_dir, True)
             try:
-                util.download_to(url, base_dir)
+                util.download_to(info_url, base_dir)
+                util.download_to(archive_url, base_dir)
                 print("- could fetch")
                 return True
             except Exception as e:
@@ -463,7 +461,7 @@ class CGetPrefix:
                         src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake != None), insecure=insecure)
                         util.mkdir(install_dir, use_build_cache)
                         self.__build(builder, pb, src_dir, install_dir, generator, test or test_all)
-                        json.dump(self.dump(pb), open(os.path.join(install_dir, "manifest.json"), "w"), indent=2)
+                        open(os.path.join(install_dir, "manifest.json"), "wb").write(self.dumps(pb))
                     if rsync_dest is not None:
                         self.archive_cached_build(pb.to_name(), package_hash)
                         self.publish_cached_build(pb.to_name(), package_hash, rsync_dest)
