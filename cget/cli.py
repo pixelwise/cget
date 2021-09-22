@@ -125,7 +125,8 @@ def archive_all(num_threads):
 def publish_all(dest):
     builds_dir = util.get_cache_path("builds")
     for package_name, package_hash in find_cached_builds(builds_dir):
-        CGetPrefix.publish_cached_build(package_name, package_hash, dest)
+        if CGetPrefix.archive_cached_build(package_name, package_hash):
+            CGetPrefix.publish_cached_build(package_name, package_hash, dest)
     print("done!")
 
 

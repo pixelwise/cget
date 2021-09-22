@@ -352,7 +352,7 @@ class CGetPrefix:
 
     @staticmethod
     def make_archive_component_path(package_name, package_hash, suffix):
-        return util.get_cache_path("builds", package_name, package_hash + "." + suffix)
+        return util.get_cache_path(".", "builds", package_name, package_hash + "." + suffix)
 
     @staticmethod
     def make_install_dir(package_name, package_hash):
@@ -367,7 +367,7 @@ class CGetPrefix:
         ]
 
     @staticmethod
-    def archive_cached_build(package_name, package_hash):
+    def archive_cached_build(package_name, package_hash)->bool:
         install_dir = CGetPrefix.make_install_dir(package_name, package_hash)
         archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
         info_path = util.get_cache_path("builds", package_name, package_hash + ".info")
@@ -377,6 +377,13 @@ class CGetPrefix:
                 shutil.copy2(manifest_path, info_path)
             if not os.path.isfile(archive_path):
                 util.archive(install_dir, archive_path, Path(install_dir).parent)
+            return True
+        else:
+            if not os.path.isdir(install_dir):
+                print("- no install dir for %s/%s" % (package_name, package_hash))
+            if not os.path.isfile(manifest_path):
+                print("- no manifest for %s/%s" % (package_name, package_hash))
+            return False
 
     @staticmethod
     def unarchive_cached_build(package_name, package_hash):
