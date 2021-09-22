@@ -340,11 +340,19 @@ class CGetPrefix:
 
     @staticmethod
     def make_archive_path(package_name, package_hash):
-        return util.get_cache_path("builds", package_name, package_hash + ".tar.xz")
+        return CGetPrefix.make_archive_component_path(package_name, package_hash, "tar.xz")
+
+    @staticmethod
+    def make_info_path(package_name, package_hash):
+        return CGetPrefix.make_archive_component_path(package_name, package_hash, "info")
 
     @staticmethod
     def make_signature_path(package_name, package_hash):
-        return util.get_cache_path("builds", package_name, package_hash + ".sig")
+        return CGetPrefix.make_archive_component_path(package_name, package_hash, "sig")
+
+    @staticmethod
+    def make_archive_component_path(package_name, package_hash, suffix):
+        return util.get_cache_path("builds", package_name, package_hash + "." + suffix)
 
     @staticmethod
     def make_install_dir(package_name, package_hash):
@@ -369,11 +377,6 @@ class CGetPrefix:
                 shutil.copy2(manifest_path, info_path)
             if not os.path.isfile(archive_path):
                 util.archive(install_dir, archive_path, Path(install_dir).parent)
-            util.sign_files(
-                files=[info_path, archive_path],
-                strings=[package_hash],
-                output_path=CGetPrefix.make_signature_path(package_name, package_hash)
-            )
 
     @staticmethod
     def unarchive_cached_build(package_name, package_hash):
@@ -408,8 +411,14 @@ class CGetPrefix:
     @staticmethod
     def publish_cached_build(package_name, package_hash, rsync_dest):
         builds_dir_rel = util.get_cache_path(".", "builds")
-        archive_path = os.path.join(builds_dir_rel, package_name, package_hash + ".tar.xz")
-        info_path = os.path.join(builds_dir_rel, package_name, package_hash + ".info")
+        archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
+        info_path = CGetPrefix.make_info_path(package_name, package_hash)
+        signature_path = CGetPrefix.make_signature_path(package_name, package_hash)
+        subprocess.check_call([
+            "gpg", "-y",
+            "--out", signature_path,
+            "--sign", archive_path
+        ])
         print("- publishing %s/%s to %s..." % (package_name, package_hash, rsync_dest))
         def sync(path):
             if os.path.isfile(path):
@@ -421,8 +430,9 @@ class CGetPrefix:
                     rsync_dest
                 ]
                 subprocess.check_call(cmd)
-        sync(archive_path)
         sync(info_path)
+        sync(signature_path)
+        sync(archive_path)
 
     @returns(six.string_types)
     @params(pb=PACKAGE_SOURCE_TYPES, test=bool, test_all=bool, update=bool)
