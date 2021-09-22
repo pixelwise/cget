@@ -389,6 +389,8 @@ class CGetPrefix:
 
     @staticmethod
     def fetch_cached_build(package_name, package_hash, http_src):
+        if util.SIGNATURE_FINGERPRINT is None:
+            raise Exception("require signature fingerprint for fetching")
         filenames = CGetPrefix.package_archive_filenames(package_hash)
         install_dir = CGetPrefix.make_install_dir(package_name, package_hash)
         base_dir = Path(install_dir).parent
@@ -402,6 +404,25 @@ class CGetPrefix:
             try:
                 for url in urls:
                     util.download_to(url, base_dir)
+                signature_path = CGetPrefix.make_signature_path(package_name, package_hash)
+                archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
+                verify_out = subprocess.check_output(
+                    [
+                        "gpg",
+                        "--verify-options", "show-primary-uid-only",
+                        "--verify", signature_path, archive_path,
+                    ],
+                    stderr=subprocess.STDOUT
+                )
+                verified = False
+                for line in verify_out.splitlines():
+                    parts = line.split()
+                    if len(parts) > 2 and parts[1] == "using":
+                        fingerprint = parts[-1]
+                        if fingerprint == util.SIGNATURE_FINGERPRINT:
+                            verified = True
+                if not verified:
+                    raise Exception("could not verify %s/%s from %s..." % (package_name, package_hash, http_src))
                 print("- could fetch")
                 return True
             except Exception as e:
@@ -414,8 +435,11 @@ class CGetPrefix:
         archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
         info_path = CGetPrefix.make_info_path(package_name, package_hash)
         signature_path = CGetPrefix.make_signature_path(package_name, package_hash)
+        if util.SIGNATURE_FINGERPRINT is None:
+            raise Exception("require signature fingerprint for publication")
         subprocess.check_call([
             "gpg", "--yes", "--detach-sign",
+            "--local-user", util.SIGNATURE_FINGERPRINT,
             "--out", signature_path,
             "--sign", archive_path
         ])
