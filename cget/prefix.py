@@ -415,7 +415,7 @@ class CGetPrefix:
         info_path = CGetPrefix.make_info_path(package_name, package_hash)
         signature_path = CGetPrefix.make_signature_path(package_name, package_hash)
         subprocess.check_call([
-            "gpg", "-y",
+            "gpg", "--yes", "--detach-sign",
             "--out", signature_path,
             "--sign", archive_path
         ])
