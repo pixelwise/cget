@@ -473,6 +473,7 @@ class CGetPrefix:
                 )
                 verified = False
                 for line in verify_out.splitlines():
+                    line = line.decode("utf-8")
                     parts = line.split()
                     if len(parts) > 2 and parts[1] == "using":
                         fingerprint = parts[-1]
@@ -481,6 +482,7 @@ class CGetPrefix:
                 if not verified:
                     raise Exception("could not verify %s/%s from %s..." % (package_name, package_hash, http_src))
                 print("- could fetch")
+                # todo: verify manifest hash and make atomic
                 return True
             except Exception as e:
                 print("- could not fetch: %s" % e)
