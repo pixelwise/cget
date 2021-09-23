@@ -357,7 +357,9 @@ class CGetPrefix:
         test_all=False,
         generator=None,
         insecure=False,
-        use_build_cache=False
+        use_build_cache=False,
+        rsync_dest=None,
+        http_src=None
     ):
         for dependent in self.get_dependents(pb, src_dir):
             testing = test or test_all
@@ -368,7 +370,9 @@ class CGetPrefix:
                     test_all=test_all,
                     generator=generator,
                     insecure=insecure,
-                    use_build_cache=use_build_cache
+                    use_build_cache=use_build_cache,
+                    rsync_dest=rsync_dest,
+                    http_src=http_src
                 )
                 print(result)
 
@@ -447,6 +451,7 @@ class CGetPrefix:
         install_dir = CGetPrefix.make_install_dir(package_name, package_hash)
         base_dir = Path(install_dir).parent
         filepaths = [os.path.join(base_dir, filename) for filename in filenames]
+        print("- checking fetch")
         if not os.path.isdir(install_dir) and not all([os.path.isfile(filepath) for filepath in filepaths]):
             if not http_src.endswith("/"):
                 http_src += "/"
@@ -545,12 +550,14 @@ class CGetPrefix:
             test_all=test_all,
             generator=generator,
             insecure=insecure,
-            use_build_cache=use_build_cache
+            use_build_cache=use_build_cache,
+            rsync_dest=rsync_dest,
+            http_src=http_src
         )
         with util.cache_lock(use_build_cache) as cache_lock:
             using_cache = False
             if use_build_cache:
-                print("- using cache -")
+                print("- using cache %s -" % http_src)
                 if http_src is not None:
                     self.fetch_cached_build(pb.to_name(), package_hash, http_src)
                 self.unarchive_cached_build(pb.to_name(), package_hash)
