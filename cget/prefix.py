@@ -102,7 +102,7 @@ class CGetPrefix:
         self.toolchain = self.write_cmake()
         with open(self.toolchain, "rb") as toolchain_file:
             self.toolchain_hash = hashlib.sha1(toolchain_file.read()).hexdigest()
-            self.system_id = "%s-%s-%s" % (distro.id(), distro.version(), platform.architecture())
+            self.system_id = "%s-%s-%s" % (distro.id(), distro.version(), platform.machine())
             self.log("system: %s" % self.system_id)
 
     def log(self, *args):
