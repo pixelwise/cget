@@ -6,6 +6,7 @@ import requests
 import shutil
 import tempfile
 from typing import List
+from pathlib import Path
 
 
 class cache_lock(object):
@@ -37,13 +38,18 @@ class cache_lock(object):
             cache_lock.__in_lock = False
 
 
-def lines_of_file(path):
+def lines_of_file(path:str)->List[str]:
     result = []
     with open(path, "r") as f:
         for line in f:
             result.append(line.strip())
     return result
 
+def lines_of_string(s:str)->List[str]:
+    result = []
+    for line in s.splitlines():
+        result.append(line.strip())
+    return result
 
 def to_bool(value):
     x = str(value).lower()
@@ -123,12 +129,11 @@ def mkdir(p, fix_permissions = False):
             fix_cache_permissions_recursive(fix_dir)
     return p
 
-def mkfile(d, file, content, always_write=True):
-    mkdir(d)
-    p = os.path.join(d, file)
-    if not os.path.exists(p) or always_write:
-        write_to(p, content)
-    return p
+def mkfile(filepath, content, always_write=True):
+    if not os.path.exists(filepath) or always_write:
+        mkdir(Path(filepath).parent)
+        write_to(filepath, content)
+    return filepath
 
 def zipdir(src_dir, tgt_file):
     print("zipping '%s' to '%s" % (src_dir, tgt_file))

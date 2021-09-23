@@ -1,7 +1,7 @@
 import os, shutil, shlex, six, inspect, click, contextlib, uuid, sys, functools, hashlib
 import distro, platform, json, subprocess
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, NamedTuple, Optional
 
 from cget.builder import Builder
 from cget.package import fname_to_pkg
@@ -14,6 +14,15 @@ from cget.types import params
 
 __CGET_DIR__ = os.path.dirname(os.path.realpath(__file__))
 __CGET_CMAKE_DIR__ = os.path.join(__CGET_DIR__, 'cmake')
+
+class cget_settings_t(NamedTuple):
+    cc: str
+    cxx: str
+    python: str = "python3"
+    position_independent_code: bool = True
+    toolchain:Optional[str] = None
+    build_shared_libs:bool =False
+
 
 @params(s=six.string_types)
 def parse_deprecated_alias(s):
@@ -99,11 +108,10 @@ class CGetPrefix:
         self.verbose = verbose
         self.build_path_var = build_path
         self.cmd = util.Commander(verbose=self.verbose)
-        self.toolchain = self.write_cmake()
-        with open(self.toolchain, "rb") as toolchain_file:
-            self.toolchain_hash = hashlib.sha1(toolchain_file.read()).hexdigest()
-            self.system_id = "%s-%s-%s" % (distro.id(), distro.version(), platform.machine())
-            self.log("system: %s" % self.system_id)
+        self.toolchain = CGetPrefix.make_toolchain_path(prefix)
+        self.system_id = "%s-%s-%s" % (distro.id(), distro.version(), platform.machine())
+        self.settings = cget_settings_t(**json.load(open(CGetPrefix.make_settings_path(prefix), "r")))
+        self.state = CGetPrefix.gen_state(self.settings)
 
     def log(self, *args):
         if self.verbose: click.secho(' '.join([str(arg) for arg in args]), bold=True)
@@ -112,52 +120,88 @@ class CGetPrefix:
         if self.verbose and not f(*args):
             raise util.BuildError('ASSERTION FAILURE: ', ' '.join([str(arg) for arg in args]))
 
-    def write_cmake(self, always_write=False, **kwargs):
-        return util.mkfile(self.get_private_path(), 'cget.cmake', self.generate_cmake_toolchain(**kwargs), always_write=always_write)
+    @staticmethod
+    def get_compiler_version(tool_path)->List[str]:
+        lines = util.lines_of_string(subprocess.check_output([tool_path, "--version"]).decode("utf-8"))
+        return list([
+            line for line in lines if not line.startswith("InstalledDir:")
+        ])
 
+    @staticmethod
+    def get_tool_version(tool_path)->List[str]:
+        return util.lines_of_string(subprocess.check_output([tool_path, "--version"]).decode("utf-8"))
+
+    @staticmethod
+    def get_python_version(tool_path)->List[str]:
+        lines = util.lines_of_string(subprocess.check_output([tool_path, "--version"]).decode("utf-8"))
+        for line in lines:
+            parts = line.split()
+            if len(parts) == 2:
+                vparts = parts[1].split(".")
+                return "%s.%s" % (vparts[0], vparts[1])
+        raise Exception("could not determine python version")
+
+    @staticmethod
+    def gen_state(settings:cget_settings_t)->Dict:
+        return {
+            "cc_version": CGetPrefix.get_compiler_version(settings.cc),
+            "cxx_version": CGetPrefix.get_compiler_version(settings.cxx),
+            "python_version": CGetPrefix.get_python_version(settings.python),
+            "position_independent_code": settings.position_independent_code,
+            "toolchain": settings.toolchain,
+            "build_shared_libs": settings.build_shared_libs,
+        }
+
+    @staticmethod
+    def make_toolchain_path(prefix:str)->str:
+        return os.path.join(prefix, 'cget', 'cget.cmake')
+
+    @staticmethod
+    def make_settings_path(prefix:str)->str:
+        return os.path.join(prefix, 'cget', 'settings.json')
+
+    @staticmethod
+    def make_state_path(prefix:str)->str:
+        return os.path.join(prefix, 'cget', 'state.json')
+
+    @staticmethod
+    def init(prefix:str, settings:cget_settings_t, always_write=False)->None:
+        util.mkfile(
+            CGetPrefix.make_toolchain_path(prefix),
+            CGetPrefix.generate_cmake_toolchain(settings),
+            always_write=always_write
+        )
+        with open(CGetPrefix.make_settings_path(prefix), "w") as settings_file:
+            settings_file.write(json.dumps(settings._asdict(), indent=2))
+        with open(CGetPrefix.make_state_path(prefix), "w") as state_file:
+            state_file.write(json.dumps(CGetPrefix.gen_state(settings), indent=2))
+
+
+    @staticmethod
     @returns(inspect.isgenerator)
     @util.yield_from
     def generate_cmake_toolchain(
-        self,
-        toolchain=None,
-        cc=None,
-        cxx=None,
-        cflags=None,
-        cxxflags=None,
-        ldflags=None,
-        std=None,
-        defines=None
+        settings:cget_settings_t
     ):
-        set_ = cmake_set
-        if_ = cmake_if
-        else_ = cmake_else
-        append_ = cmake_append
-        if toolchain: yield ['include({})'.format(util.quote(os.path.abspath(toolchain)))]
-        if cxx: yield set_('CMAKE_CXX_COMPILER', cxx)
-        if cc: yield set_('CMAKE_C_COMPILER', cc)
-        if std:
-            yield if_('NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"',
-                set_('CMAKE_CXX_STD_FLAG', "-std={}".format(std))
-            )
-        yield if_('"${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"',
-            set_('CMAKE_CXX_ENABLE_PARALLEL_BUILD_FLAG', "/MP")
+        if settings.toolchain: yield ['include({})'.format(util.quote(os.path.abspath(settings.toolchain)))]
+        if settings.cxx: yield cmake_set('CMAKE_CXX_COMPILER', settings.cxx)
+        if settings.cc: yield cmake_set('CMAKE_C_COMPILER', settings.cc)
+        yield cmake_if('"${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"',
+            cmake_set('CMAKE_CXX_ENABLE_PARALLEL_BUILD_FLAG', "/MP")
         )
-        if cflags:
-            yield set_('CMAKE_C_FLAGS', "$ENV{{CFLAGS}} ${{CMAKE_C_FLAGS_INIT}} {}".format(cflags or ''), cache='STRING')
-        if cxxflags or std:
-            yield set_('CMAKE_CXX_FLAGS', "$ENV{{CXXFLAGS}} ${{CMAKE_CXX_FLAGS_INIT}} ${{CMAKE_CXX_STD_FLAG}} {}".format(cxxflags or ''), cache='STRING')
-        if ldflags:
-            for link_type in ['STATIC', 'SHARED', 'MODULE', 'EXE']:
-                yield set_('CMAKE_{}_LINKER_FLAGS'.format(link_type), "$ENV{{LDFLAGS}} {0}".format(ldflags), cache='STRING')
+        defines={
+           "CMAKE_POSITION_INDEPENDENT_CODE": "YES" if settings.position_independent_code else "NO",
+           "BUILD_SHARED_LIBS": "YES" if settings.build_shared_libs else "NO"
+        }
+        if settings.python:
+            defines["BOOST_PYTHON"] = settings.python
         for dkey in defines or {}:
             name, vtype, value = parse_cmake_var_type(dkey, defines[dkey])
-            yield set_(name, value, cache=vtype, quote=(vtype != 'BOOL'))
-        yield if_('BUILD_SHARED_LIBS',
-            set_('CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS', 'ON', cache='BOOL')
+            yield cmake_set(name, value, cache=vtype, quote=(vtype != 'BOOL'))
+        yield cmake_if('BUILD_SHARED_LIBS',
+            cmake_set('CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS', 'ON', cache='BOOL')
         )
-        yield set_('CMAKE_FIND_FRAMEWORK', 'LAST', cache='STRING')
-
-
+        yield cmake_set('CMAKE_FIND_FRAMEWORK', 'LAST', cache='STRING')
 
     def get_path(self, *paths):
         return os.path.join(self.prefix, *paths)
@@ -218,13 +262,14 @@ class CGetPrefix:
         if name is None: name = p
         return PackageSource(name=name, url=url)
 
-    def dumps(self, pkg) -> bytes:
+    def gen_manifest(self, pkg) -> bytes:
         return json.dumps(
             {
                 "recipes" : self.dump_recipes(pkg),
                 "system_id" : self.system_id,
-                "toolchain" : util.lines_of_file(self.toolchain),
+                "state" : self.state,
                 "cache_path" : util.get_cache_path(),
+                "cget_version" : 2
             },
             indent = 2
         ).encode("utf-8")
@@ -241,7 +286,7 @@ class CGetPrefix:
         return recipes
 
     def hash_pkg(self, pkg):
-        return hashlib.sha1(self.dumps(pkg))
+        return hashlib.sha1(self.gen_manifest(pkg)).hexdigest()
 
     @returns(PackageSource)
     @params(pkg=PACKAGE_SOURCE_TYPES)
@@ -519,7 +564,7 @@ class CGetPrefix:
                         src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake != None), insecure=insecure)
                         util.mkdir(install_dir, use_build_cache)
                         self.__build(builder, pb, src_dir, install_dir, generator, test or test_all)
-                        open(os.path.join(install_dir, "manifest.json"), "wb").write(self.dumps(pb))
+                        open(os.path.join(install_dir, "manifest.json"), "wb").write(self.gen_manifest(pb))
                     if rsync_dest is not None:
                         self.archive_cached_build(pb.to_name(), package_hash)
                         self.publish_cached_build(pb.to_name(), package_hash, rsync_dest)
