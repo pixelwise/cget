@@ -574,7 +574,7 @@ class CGetPrefix:
                         util.mkdir(install_dir, use_build_cache)
                         self.__build(builder, pb, src_dir, install_dir, generator, test or test_all)
                         open(os.path.join(install_dir, "manifest.json"), "wb").write(self.gen_manifest(pb))
-                    if rsync_dest is not None:
+                    if rsync_dest and util.SIGNATURE_FINGERPRINT:
                         self.archive_cached_build(pb.to_name(), package_hash)
                         self.publish_cached_build(pb.to_name(), package_hash, rsync_dest)
                 except:
