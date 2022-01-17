@@ -121,18 +121,22 @@ class CGetPrefix:
             raise util.BuildError('ASSERTION FAILURE: ', ' '.join([str(arg) for arg in args]))
 
     @staticmethod
-    def get_compiler_version(tool_path)->List[str]:
-        lines = util.lines_of_string(subprocess.check_output([tool_path, "--version"]).decode("utf-8"))
-        return list([
-            line for line in lines if not line.startswith("InstalledDir:")
-        ])
+    def get_compiler_version(tool_path)->str:
+        version_out = subprocess.check_output(
+            [tool_path, "-v"],
+            stderr=subprocess.STDOUT
+        ).decode("utf-8")
+        lines = util.lines_of_string(version_out)
+        for line in lines:
+            words = line.split()
+            if "version" in words:
+                i = words.index("version")
+                if i + 1 < len(words):
+                    return " ".join(words[:i+2])
+        return version_out
 
     @staticmethod
-    def get_tool_version(tool_path)->List[str]:
-        return util.lines_of_string(subprocess.check_output([tool_path, "--version"]).decode("utf-8"))
-
-    @staticmethod
-    def get_python_version(tool_path)->List[str]:
+    def get_python_version(tool_path)->str:
         lines = util.lines_of_string(subprocess.check_output([tool_path, "--version"]).decode("utf-8"))
         for line in lines:
             parts = line.split()
