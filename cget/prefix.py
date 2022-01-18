@@ -275,7 +275,8 @@ class CGetPrefix:
                 "cache_path" : util.get_cache_path(),
                 "cget_version" : 2
             },
-            indent = 2
+            indent = 2,
+            sort_keys=True
         ).encode("utf-8")
 
     def dump_recipes(self, pkg) -> Dict:
