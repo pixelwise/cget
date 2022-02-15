@@ -18,6 +18,8 @@ __CGET_CMAKE_DIR__ = os.path.join(__CGET_DIR__, 'cmake')
 class cget_settings_t(NamedTuple):
     cc: str
     cxx: str
+    cflags: Optional[str]
+    cxxflags: Optional[str]
     python: str = "python3"
     position_independent_code: bool = True
     toolchain:Optional[str] = None
@@ -148,7 +150,7 @@ class CGetPrefix:
 
     @staticmethod
     def gen_state(settings:cget_settings_t)->Dict:
-        return {
+        state = {
             "cc_version": CGetPrefix.get_compiler_version(settings.cc),
             "cxx_version": CGetPrefix.get_compiler_version(settings.cxx),
             "python_version": CGetPrefix.get_python_version(settings.python),
@@ -156,6 +158,11 @@ class CGetPrefix:
             "toolchain": settings.toolchain,
             "build_shared_libs": settings.build_shared_libs,
         }
+        if settings.cflags:
+            state["cflags"] = settings.cflags
+        if settings.cxxflags:
+            state["cxxflags"] = settings.cxxflags
+        return state
 
     @staticmethod
     def make_toolchain_path(prefix:str)->str:
@@ -191,6 +198,8 @@ class CGetPrefix:
         if settings.toolchain: yield ['include({})'.format(util.quote(os.path.abspath(settings.toolchain)))]
         if settings.cxx: yield cmake_set('CMAKE_CXX_COMPILER', settings.cxx)
         if settings.cc: yield cmake_set('CMAKE_C_COMPILER', settings.cc)
+        if settings.cflags: yield cmake_set('CMAKE_C_FLAGS', settings.cflags)
+        if settings.cxxflags: yield cmake_set('CMAKE_CXX_FLAGS', settings.cxxflags)
         yield cmake_if('"${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"',
             cmake_set('CMAKE_CXX_ENABLE_PARALLEL_BUILD_FLAG', "/MP")
         )
