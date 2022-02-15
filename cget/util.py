@@ -425,10 +425,11 @@ def actual_path(path, start=None):
     return os.path.normpath(os.path.join(start or os.getcwd(), os.path.expanduser(path)))
 
 class Commander:
-    def __init__(self, paths=None, env=None, verbose=False):
+    def __init__(self, paths=None, env=None, verbose=False, arch=None):
         self.paths = paths
         self.env = env
         self.verbose = verbose
+        self.arch = arch
 
     def _get_paths_env(self):
         if self.paths is not None:
@@ -439,6 +440,8 @@ class Commander:
         exe = which(name, self.paths)
         option_args = ["{0}={1}".format(key, value) for key, value in six.iteritems(options or {})]
         c = [exe] + option_args + as_list(args or [])
+        if self.arch:
+            c = ["arch", "-arch", self.arch] + c
         if self.verbose: click.secho(' '.join(c), bold=True)
         return cmd(c, env=as_dict_str(merge(self.env, self._get_paths_env(), env)), **kwargs)
 

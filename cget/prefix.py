@@ -103,12 +103,13 @@ def find_cmake(p, start):
 PACKAGE_SOURCE_TYPES = (six.string_types, PackageSource, PackageBuild)
 
 class CGetPrefix:
-    def __init__(self, prefix, verbose=False, build_path=None):
+    def __init__(self, prefix, verbose=False, build_path=None, arch=None):
         self.prefix = os.path.abspath(prefix or 'cget')
         self.verbose = verbose
         self.build_path_var = build_path
-        self.cmd = util.Commander(verbose=self.verbose)
+        self.cmd = util.Commander(verbose=self.verbose, arch=arch)
         self.toolchain = CGetPrefix.make_toolchain_path(prefix)
+        self.arch = arch
         self.system_id = "%s-%s-%s" % (distro.id(), distro.version(), platform.machine())
         self.settings = cget_settings_t(**json.load(open(CGetPrefix.make_settings_path(prefix), "r")))
         self.state = CGetPrefix.gen_state(self.settings)
@@ -267,14 +268,17 @@ class CGetPrefix:
         return PackageSource(name=name, url=url)
 
     def gen_manifest(self, pkg) -> bytes:
+        manifest = {
+            "recipes" : self.dump_recipes(pkg),
+            "system_id" : self.system_id,
+            "state" : self.state,
+            "cache_path" : util.get_cache_path(),
+            "cget_version" : 2
+        }
+        if self.arch:
+            manifest["arch"] = self.arch
         return json.dumps(
-            {
-                "recipes" : self.dump_recipes(pkg),
-                "system_id" : self.system_id,
-                "state" : self.state,
-                "cache_path" : util.get_cache_path(),
-                "cget_version" : 2
-            },
+            manifest,
             indent = 2,
             sort_keys=True
         ).encode("utf-8")

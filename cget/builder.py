@@ -20,11 +20,13 @@ class Builder:
         return os.path.exists(self.get_build_path('Makefile'))
 
     def cmake(self, options=None, use_toolchain=False, **kwargs):
-        if use_toolchain: return self.prefix.cmd.cmake(
-            options=util.merge({'-DCMAKE_TOOLCHAIN_FILE': self.prefix.toolchain}, options),
-            **kwargs
-        )
-        else: return self.prefix.cmd.cmake(options=options, **kwargs)
+        if use_toolchain:
+            return self.prefix.cmd.cmake(
+                options=util.merge({'-DCMAKE_TOOLCHAIN_FILE': self.prefix.toolchain}, options),
+                **kwargs
+            )
+        else:
+            return self.prefix.cmd.cmake(options=options, **kwargs)
 
     def show_log(self, log):
         if self.prefix.verbose and os.path.exists(log):
