@@ -150,11 +150,6 @@ auto_search()
 preamble(MAKE)
 
 set(MAKE_VARIABLES
-        "CC=${CMAKE_C_COMPILER}"
-        "CXX=${CMAKE_CXX_COMPILER}"
-        "CFLAGS=${MAKE_C_FLAGS}"
-        "CXXFLAGS=${MAKE_CXX_FLAGS}"
-        "LDFLAGS=${MAKE_LINK_FLAGS}"
         "PREFIX=${CMAKE_INSTALL_PREFIX}"
 )
 
