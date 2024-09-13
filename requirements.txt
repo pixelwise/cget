@@ -5,3 +5,4 @@ requests
 dirhash>=0.2.1
 filelock>=2.0.13
 distro
+setuptools
