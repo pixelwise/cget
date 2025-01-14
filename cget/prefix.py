@@ -628,6 +628,7 @@ class CGetPrefix:
                         [
                             os.path.join(path, "lib/pkgconfig"),
                             os.path.join(path, "lib64/pkgconfig"),
+                            os.path.join(path, "share/pkgconfig"),
                         ]
                         for path in dep_install_paths
                     ],
