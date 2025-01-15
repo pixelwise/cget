@@ -92,10 +92,11 @@ def parse_cmake_var_type(key, value):
 
 def find_patches(patches, start):
     result = []
-    for patch in patches:
-        absp = util.actual_path(patch, start)
-        if os.path.exists(absp):
-            result.append(absp)
+    if patches:
+        for patch in patches:
+            absp = util.actual_path(patch, start)
+            if os.path.exists(absp):
+                result.append(absp)
     return result
 
 def find_cmake(p, start):
