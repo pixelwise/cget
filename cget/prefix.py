@@ -90,6 +90,14 @@ def parse_cmake_var_type(key, value):
     else:
         return (key, 'STRING', value)
 
+def find_patches(patches, start):
+    result = []
+    for patch in patches:
+        absp = util.actual_path(patch, start)
+        if os.path.exists(absp):
+            result.append(absp)
+    return result
+
 def find_cmake(p, start):
     if p and not os.path.isabs(p):
         absp = util.actual_path(p, start)
@@ -326,6 +334,7 @@ class CGetPrefix:
             pkg.pkg_src = self.parse_pkg_src(pkg.pkg_src, start, no_recipe)
             if pkg.pkg_src.recipe: pkg = self.from_recipe(pkg.pkg_src.recipe, pkg)
             if pkg.cmake: pkg.cmake = find_cmake(pkg.cmake, start)
+            if pkg.patch: pkg.patch = find_patches(pkg.patch, start)
             return pkg
         else:
             pkg_src = self.parse_pkg_src(pkg, start, no_recipe)
@@ -589,6 +598,7 @@ class CGetPrefix:
                 try:
                     with self.create_builder(pb.to_name() + "-" + uuid.uuid4().hex, tmp=True) as builder:
                         src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake != None), insecure=insecure)
+                        builder.apply_patches(src_dir=src_dir, patches=pb.patch)
                         util.mkdir(install_dir, use_build_cache)
                         self.__build(builder, pb, src_dir, install_dir, generator, test or test_all)
                         open(os.path.join(install_dir, "manifest.json"), "wb").write(self.gen_manifest(pb))

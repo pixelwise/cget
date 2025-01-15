@@ -57,7 +57,7 @@ def fname_to_pkg(fname):
     else: return PackageSource(name=fname.replace('__', '/'), fname=fname)
 
 class PackageBuild:
-    def __init__(self, pkg_src=None, define=None, parent=None, test=False, hash=None, build=None, cmake=None, variant=None, requirements=None, file=None):
+    def __init__(self, pkg_src=None, define=None, parent=None, test=False, hash=None, build=None, cmake=None, variant=None, requirements=None, file=None, patch=None):
         self.pkg_src = pkg_src
         self.define = define or []
         self.parent = parent
@@ -68,6 +68,7 @@ class PackageBuild:
         self.variant = variant or 'Release'
         self.requirements = requirements
         self.file = file
+        self.patch = patch or []
 
     def merge_defines(self, defines):
         result = copy.copy(self)
@@ -78,6 +79,8 @@ class PackageBuild:
         result = copy.copy(self)
         if result.define: result.define.extend(other.define)
         else: result.define = other.define
+        if result.patch: result.define.extend(other.patch)
+        else: result.patch = other.patch
         for field in dir(self):
             if not callable(getattr(self, field)) and not field.startswith("__") and not field in ['define', 'pkg_src']:
                 x = getattr(self, field)
@@ -103,6 +106,7 @@ def parse_pkg_build_tokens(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('pkg_src', nargs='?')
     parser.add_argument('-D', '--define', action='append', default=[])
+    parser.add_argument('-P', '--patch', action='append', default=[])
     parser.add_argument('-H', '--hash')
     parser.add_argument('-X', '--cmake')
     parser.add_argument('-f', '--file')

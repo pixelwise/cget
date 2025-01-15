@@ -1,5 +1,5 @@
 import click, os, multiprocessing, six
-
+import patch
 import cget.util as util
 
 class Builder:
@@ -54,6 +54,14 @@ class Builder:
             click.echo("Extracting archive {0} ...".format(f))
             util.unarchive(archive=f, dst=self.top_dir)
         return next(util.get_dirs(self.top_dir))
+
+    def apply_patches(self, src_dir, patches):
+        for patch_path in patches:
+            diff = patch.from_fime(patch_path)
+            if diff:
+                diff.apply(root=src_dir)
+            else:
+                raise Exception("could not parse patch '%s'" % patch_path)
 
     def configure(self, src_dir, defines=None, generator=None, install_prefix=None, test=True, variant=None, env=None):
         self.prefix.log("configure")
