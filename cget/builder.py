@@ -57,7 +57,7 @@ class Builder:
 
     def apply_patches(self, src_dir, patches):
         for patch_path in patches:
-            diff = patch.from_fime(patch_path)
+            diff = patch.fromfile(patch_path)
             if diff:
                 diff.apply(root=src_dir)
             else:
