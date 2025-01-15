@@ -79,7 +79,7 @@ class PackageBuild:
         result = copy.copy(self)
         if result.define: result.define.extend(other.define)
         else: result.define = other.define
-        if result.patch: result.define.extend(other.patch)
+        if result.patch: result.patch.extend(other.patch)
         else: result.patch = other.patch
         for field in dir(self):
             if not callable(getattr(self, field)) and not field.startswith("__") and not field in ['define', 'pkg_src']:
