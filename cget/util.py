@@ -66,7 +66,7 @@ def cget_dir(*args):
     return os.path.join(__CGET_DIR__, *args)
 
 def is_string(obj):
-    return isinstance(obj, six.string_types)
+    return isinstance(obj, str)
 
 def quote(s):
     return json.dumps(s)
@@ -373,12 +373,6 @@ def flat(*args):
         for x in arg:
             for y in x: yield y
 
-def yield_from(f):
-    @six.wraps(f)
-    def g(*args, **kwargs):
-        return flat(f(*args, **kwargs))
-    return g
-
 def cmd(args, env=None, capture=None, **kwargs):
     e = merge(os.environ, env)
     c = capture or ''
@@ -431,7 +425,7 @@ class Commander:
 
     def _cmd(self, name, args=None, options=None, env=None, **kwargs):
         exe = which(name, self.paths)
-        option_args = ["{0}={1}".format(key, value) for key, value in six.iteritems(options or {})]
+        option_args = ["{0}={1}".format(key, value) for key, value in options] if options else []
         c = [exe] + option_args + as_list(args or [])
         if self.arch:
             c = ["arch", "-arch", self.arch] + c
