@@ -39,22 +39,15 @@ class cache_lock(object):
 
 
 def lines_of_file(path:str)->List[str]:
-    result = []
     with open(path, "r") as f:
-        for line in f:
-            result.append(line.strip())
-    return result
+        return list(f)
 
 def lines_of_string(s:str)->List[str]:
-    result = []
-    for line in s.splitlines():
-        result.append(line.strip())
-    return result
+    return list(s.splitlines())
 
 def to_bool(value):
     x = str(value).lower()
-    if x in ("no",  "n", "false", "f", "0", "0.0", "", "none", "[]", "{}"): return False
-    return True
+    return x not in ("no",  "n", "false", "f", "0", "0.0", "", "none", "[]", "{}")
 
 USE_SYMLINKS=to_bool(os.environ.get('CGET_USE_SYMLINKS', (os.name == 'posix')))
 USE_CMAKE_TAR=to_bool(os.environ.get('CGET_USE_CMAKE_TAR', True))
