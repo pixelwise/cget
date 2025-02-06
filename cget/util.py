@@ -1,10 +1,8 @@
-from posixpath import basename
-import click, os, sys, shutil, json, six, hashlib, ssl, filelock
+import click, os, sys, shutil, json, hashlib, filelock
 import tarfile, zipfile
 import subprocess
 import requests
 import shutil
-import tempfile
 from typing import List
 from pathlib import Path
 
