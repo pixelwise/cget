@@ -423,7 +423,7 @@ class Commander:
 
     def _cmd(self, name, args=None, options=None, env=None, **kwargs):
         exe = which(name, self.paths)
-        option_args = ["{0}={1}".format(key, value) for key, value in options] if options else []
+        option_args = ["{0}={1}".format(key, value) for key, value in options.items()] if options else []
         c = [exe] + option_args + as_list(args or [])
         if self.arch:
             c = ["arch", "-arch", self.arch] + c
