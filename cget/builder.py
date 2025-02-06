@@ -1,5 +1,5 @@
 import subprocess
-import click, os, multiprocessing, six
+import click, os, multiprocessing
 import cget.util as util
 
 class Builder:
@@ -43,7 +43,7 @@ class Builder:
         except:
             pass
         for line in (out or '').splitlines():
-            if line.startswith(six.b('... ')):
+            if line.startswith(b'... '):
                 yield line[4:]
 
     def fetch(self, url, hash=None, copy=False, insecure=False):

@@ -1,8 +1,8 @@
-import base64, copy, argparse, six, dirhash, hashlib, os
+import base64, copy, argparse, dirhash, hashlib, os
 import cget.util as util
 
-def encode_url(url):
-    x = six.b(url[url.find('://')+3:])
+def encode_url(url:str):
+    x = url[url.find('://')+3:].encode("utf8")
     return '_url_' + base64.urlsafe_b64encode(x).decode('utf-8').replace('=', '_')
 
 def decode_url(url):

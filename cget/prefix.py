@@ -1,7 +1,7 @@
-import os, shutil, shlex, six, inspect, click, contextlib, uuid, sys, functools, hashlib
+import os, shutil, shlex, inspect, click, contextlib, uuid, sys, functools, hashlib
 import distro, platform, json, subprocess
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional
+from typing import Dict, List, NamedTuple, Optional, Union, Generator
 
 from cget.builder import Builder
 from cget.package import fname_to_pkg
@@ -9,8 +9,6 @@ from cget.package import PackageSource
 from cget.package import PackageBuild
 from cget.package import parse_pkg_build_tokens
 import cget.util as util
-from cget.types import returns
-from cget.types import params
 
 __CGET_DIR__ = os.path.dirname(os.path.realpath(__file__))
 __CGET_CMAKE_DIR__ = os.path.join(__CGET_DIR__, 'cmake')
@@ -26,22 +24,19 @@ class cget_settings_t(NamedTuple):
     build_shared_libs:bool =False
 
 
-@params(s=six.string_types)
-def parse_deprecated_alias(s):
+def parse_deprecated_alias(s:str):
     i = s.find(':', 0, max(s.find('://'), s.find(':\\')))
     if i > 0: 
         click.echo("WARNING: Using ':' for aliases is now deprecated.")
         return s[0:i], s[i+1:]
     else: return None, s
 
-@params(s=six.string_types)
-def parse_alias(s):
+def parse_alias(s:str):
     i = s.find(',')
     if i > 0: return s[0:i], s[i+1:]
     else: return parse_deprecated_alias(s)
 
-@params(s=six.string_types)
-def parse_src_name(url, default=None):
+def parse_src_name(url:str, default=None):
     x = url.split('@')
     p = x[0]
     # If the same name is used, then reduce to the same name
@@ -53,35 +48,36 @@ def parse_src_name(url, default=None):
     if len(x) > 1: v = x[1]
     return (p, v)
 
-def cmake_set(var, val, quote=True, cache=None, description=None):
+def cmake_set(var, val, quote=True, cache=None, description=None)->Generator[str,None,None]:
     x = val
-    if quote: x = util.quote(val)
+    if quote:
+        x = util.quote(val)
     if cache is None or cache.lower() == 'none':
         yield "set({0} {1})".format(var, x)
     else:
         yield 'set({0} {1} CACHE {2} "{3}")'.format(var, x, cache, description or '')
 
-def cmake_append(var, *vals, **kwargs):
+def cmake_append(var, *vals, **kwargs)->Generator[str,None,None]:
     quote = True
     if 'quote' in kwargs: quote = kwargs['quote']
     x = ' '.join(vals)
     if quote: x = ' '.join([util.quote(val) for val in vals])
     yield 'list(APPEND {0} {1})'.format(var, x)
 
-def cmake_if(cond, *args):
+def cmake_if(cond, *args)->Generator[str,None,None]:
     yield 'if ({})'.format(cond)
     for arg in args:
         for line in arg:
             yield '    ' + line
     yield 'endif()'
 
-def cmake_else(*args):
+def cmake_else(*args)->Generator[str,None,None]:
     yield 'else ()'
     for arg in args:
         for line in arg:
             yield '    ' + line
 
-def parse_cmake_var_type(key, value):
+def parse_cmake_var_type(key, value)->Generator[str,None,None]:
     if ':' in key:
         p = key.split(':')
         return (p[0], p[1].upper(), value)
@@ -102,16 +98,19 @@ def find_patches(patches, start):
 def find_cmake(p, start):
     if p and not os.path.isabs(p):
         absp = util.actual_path(p, start)
-        if os.path.exists(absp): return absp
+        if os.path.exists(absp):
+            return absp
         else:
             x = util.cget_dir('cmake', p)
-            if os.path.exists(x): return x
-            elif os.path.exists(x + '.cmake'): return x + '.cmake'
+            if os.path.exists(x):
+                return x
+            elif os.path.exists(x + '.cmake'):
+                return x + '.cmake'
     return p
 
 
 
-PACKAGE_SOURCE_TYPES = (six.string_types, PackageSource, PackageBuild)
+PACKAGE_SOURCE_TYPES = Union[str, PackageSource, PackageBuild]
 
 class CGetPrefix:
     def __init__(self, prefix, verbose=False, build_path=None, arch=None):
@@ -126,7 +125,8 @@ class CGetPrefix:
         self.state = CGetPrefix.gen_state(self.settings)
 
     def log(self, *args):
-        if self.verbose: click.secho(' '.join([str(arg) for arg in args]), bold=True)
+        if self.verbose:
+            click.secho(' '.join([str(arg) for arg in args]), bold=True)
 
     def check(self, f, *args):
         if self.verbose and not f(*args):
@@ -199,17 +199,20 @@ class CGetPrefix:
 
 
     @staticmethod
-    @returns(inspect.isgenerator)
-    @util.yield_from
     def generate_cmake_toolchain(
         settings:cget_settings_t
-    ):
-        if settings.toolchain: yield ['include({})'.format(util.quote(os.path.abspath(settings.toolchain)))]
-        if settings.cxx: yield cmake_set('CMAKE_CXX_COMPILER', settings.cxx)
-        if settings.cc: yield cmake_set('CMAKE_C_COMPILER', settings.cc)
-        if settings.cflags: yield cmake_set('CMAKE_C_FLAGS', settings.cflags)
-        if settings.cxxflags: yield cmake_set('CMAKE_CXX_FLAGS', settings.cxxflags)
-        yield cmake_if('"${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"',
+    )->Generator[str,None,None]:
+        if settings.toolchain:
+            yield from ['include({})'.format(util.quote(os.path.abspath(settings.toolchain)))]
+        if settings.cxx:
+            yield from cmake_set('CMAKE_CXX_COMPILER', settings.cxx)
+        if settings.cc:
+            yield from cmake_set('CMAKE_C_COMPILER', settings.cc)
+        if settings.cflags:
+            yield from cmake_set('CMAKE_C_FLAGS', settings.cflags)
+        if settings.cxxflags:
+            yield from cmake_set('CMAKE_CXX_FLAGS', settings.cxxflags)
+        yield from cmake_if('"${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"',
             cmake_set('CMAKE_CXX_ENABLE_PARALLEL_BUILD_FLAG', "/MP")
         )
         defines={
@@ -220,11 +223,11 @@ class CGetPrefix:
             defines["BOOST_PYTHON"] = settings.python
         for dkey in defines or {}:
             name, vtype, value = parse_cmake_var_type(dkey, defines[dkey])
-            yield cmake_set(name, value, cache=vtype, quote=(vtype != 'BOOL'))
-        yield cmake_if('BUILD_SHARED_LIBS',
+            yield from cmake_set(name, value, cache=vtype, quote=(vtype != 'BOOL'))
+        yield from cmake_if('BUILD_SHARED_LIBS',
             cmake_set('CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS', 'ON', cache='BOOL')
         )
-        yield cmake_set('CMAKE_FIND_FRAMEWORK', 'LAST', cache='STRING')
+        yield from cmake_set('CMAKE_FIND_FRAMEWORK', 'LAST', cache='STRING')
 
     def get_path(self, *paths):
         return os.path.join(self.prefix, *paths)
@@ -239,18 +242,22 @@ class CGetPrefix:
         return [self.get_public_path('recipes')]
 
     def get_builder_path(self, *paths):
-        if self.build_path_var: return os.path.join(self.build_path_var, *paths)
-        else: return self.get_private_path('build', *paths)
+        if self.build_path_var:
+            return os.path.join(self.build_path_var, *paths)
+        else:
+            return self.get_private_path('build', *paths)
 
     @contextlib.contextmanager
     def create_builder(self, name, tmp=False):
         pre = ''
-        if tmp: pre = 'tmp-'
+        if tmp:
+            pre = 'tmp-'
         d = self.get_builder_path(pre + name)
         exists = os.path.exists(d)
         util.mkdir(d)
         yield Builder(self, d, exists)
-        if tmp: shutil.rmtree(d, ignore_errors=True)
+        if tmp:
+            shutil.rmtree(d, ignore_errors=True)
 
     def get_package_directory(self, *dirs):
         return self.get_private_path('pkg', *dirs)
@@ -280,9 +287,12 @@ class CGetPrefix:
 
     def parse_src_github(self, name, url):
         p, v = parse_src_name(url, 'HEAD')
-        if '/' in p: url = 'https://github.com/{0}/archive/{1}.tar.gz'.format(p, v)
-        else: url = 'https://github.com/{0}/{0}/archive/{1}.tar.gz'.format(p, v)
-        if name is None: name = p
+        if '/' in p:
+            url = 'https://github.com/{0}/archive/{1}.tar.gz'.format(p, v)
+        else:
+            url = 'https://github.com/{0}/{0}/archive/{1}.tar.gz'.format(p, v)
+        if name is None:
+            name = p
         return PackageSource(name=name, url=url)
 
     def gen_manifest(self, pkg) -> bytes:
@@ -315,11 +325,11 @@ class CGetPrefix:
     def hash_pkg(self, pkg):
         return hashlib.sha1(self.gen_manifest(pkg)).hexdigest()
 
-    @returns(PackageSource)
-    @params(pkg=PACKAGE_SOURCE_TYPES)
-    def parse_pkg_src(self, pkg, start=None, no_recipe=False):
-        if isinstance(pkg, PackageSource): return pkg
-        if isinstance(pkg, PackageBuild): return self.parse_pkg_src(pkg.pkg_src, start)
+    def parse_pkg_src(self, pkg:PACKAGE_SOURCE_TYPES, start=None, no_recipe=False)->PackageSource:
+        if isinstance(pkg, PackageSource):
+            return pkg
+        if isinstance(pkg, PackageBuild):
+            return self.parse_pkg_src(pkg.pkg_src, start)
         name, url = parse_alias(pkg)
         self.log('parse_pkg_src:', name, url, pkg)
         if '://' not in url:
@@ -328,19 +338,22 @@ class CGetPrefix:
                 self.parse_src_github(name, url)
         return PackageSource(name=name, url=url)
 
-    @returns(PackageBuild)
-    @params(pkg=PACKAGE_SOURCE_TYPES)
-    def parse_pkg_build(self, pkg, start=None, no_recipe=False):
+    def parse_pkg_build(self, pkg:PACKAGE_SOURCE_TYPES, start=None, no_recipe=False)->PackageBuild:
         if isinstance(pkg, PackageBuild):
             pkg.pkg_src = self.parse_pkg_src(pkg.pkg_src, start, no_recipe)
-            if pkg.pkg_src.recipe: pkg = self.from_recipe(pkg.pkg_src.recipe, pkg)
-            if pkg.cmake: pkg.cmake = find_cmake(pkg.cmake, start)
-            if pkg.patch: pkg.patch = find_patches(pkg.patch, start)
+            if pkg.pkg_src.recipe:
+                pkg = self.from_recipe(pkg.pkg_src.recipe, pkg)
+            if pkg.cmake:
+                pkg.cmake = find_cmake(pkg.cmake, start)
+            if pkg.patch:
+                pkg.patch = find_patches(pkg.patch, start)
             return pkg
         else:
             pkg_src = self.parse_pkg_src(pkg, start, no_recipe)
-            if pkg_src.recipe: return self.from_recipe(pkg_src.recipe, name=pkg_src.name)
-            else: return PackageBuild(pkg_src)
+            if pkg_src.recipe: 
+                return self.from_recipe(pkg_src.recipe, name=pkg_src.name)
+            else:
+                return PackageBuild(pkg_src)
 
     def from_recipe(self, recipe, pkg=None, name=None):
         recipe_pkg = os.path.join(recipe, "package.txt")
@@ -348,14 +361,19 @@ class CGetPrefix:
         p = next(iter(self.from_file(recipe_pkg, no_recipe=True)))
         self.check(lambda:p.pkg_src is not None)
         requirements = os.path.join(recipe, "requirements.txt")
-        if os.path.exists(requirements): p.requirements = requirements
+        if os.path.exists(requirements):
+            p.requirements = requirements
         p.pkg_src.recipe = recipe
         # Use original name
-        if pkg: p.pkg_src.name = pkg.pkg_src.name
-        elif name: p.pkg_src.name = name
+        if pkg:
+            p.pkg_src.name = pkg.pkg_src.name
+        elif name:
+            p.pkg_src.name = name
 
-        if pkg: return p.merge(pkg)
-        else: return p
+        if pkg:
+            return p.merge(pkg)
+        else:
+            return p
 
     def from_file(self, file, url=None, no_recipe=False):
         if file is None:
@@ -518,7 +536,6 @@ class CGetPrefix:
 
     @staticmethod
     def publish_cached_build(package_name, package_hash, rsync_dest):
-        builds_dir_rel = util.get_cache_path(".", "builds")
         archive_path = CGetPrefix.make_archive_path(package_name, package_hash)
         info_path = CGetPrefix.make_info_path(package_name, package_hash)
         signature_path = CGetPrefix.make_signature_path(package_name, package_hash)
@@ -545,11 +562,9 @@ class CGetPrefix:
         sync(signature_path)
         sync(archive_path)
 
-    @returns(six.string_types)
-    @params(pb=PACKAGE_SOURCE_TYPES, test=bool, test_all=bool, update=bool)
     def install(
         self,
-        pb,
+        pb:PACKAGE_SOURCE_TYPES,
         test=False,
         test_all=False,
         generator=None,
@@ -557,10 +572,9 @@ class CGetPrefix:
         use_build_cache=False,
         rsync_dest=None,
         http_src=None
-    ):
+    )->str:
         pb = self.parse_pkg_build(pb)
         pkg_dir = self.get_package_directory(pb.to_fname())
-        unlink_dir = self.get_unlink_directory(pb.to_fname())
         package_hash = self.hash_pkg(pb)
         print("=> installing %s hash %s" % (pb.to_name(), package_hash))
         self.log("package %s hash %s" % (pb.to_name(), package_hash))
@@ -584,7 +598,7 @@ class CGetPrefix:
             rsync_dest=rsync_dest,
             http_src=http_src
         )
-        with util.cache_lock(use_build_cache) as cache_lock:
+        with util.cache_lock(use_build_cache):
             using_cache = False
             if use_build_cache:
                 print("- using cache %s -" % http_src)
@@ -598,7 +612,7 @@ class CGetPrefix:
                 print("=> building %s to %s" % (pb.to_name(), install_dir))
                 try:
                     with self.create_builder(pb.to_name() + "-" + uuid.uuid4().hex, tmp=True) as builder:
-                        src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake != None), insecure=insecure)
+                        src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake is not None), insecure=insecure)
                         builder.apply_patches(src_dir=src_dir, patches=pb.patch)
                         util.mkdir(install_dir, use_build_cache)
                         self.__build(builder, pb, src_dir, install_dir, generator, test or test_all)
@@ -694,13 +708,16 @@ class CGetPrefix:
         else:
             p = self.parse_pkg_src(pkg)
             ls = util.ls(self.get_deps_directory(p.to_fname()), os.path.isfile)
-            if top: return [p.to_fname()]+list(ls)
-            else: return ls
+            if top:
+                return [p.to_fname()]+list(ls)
+            else:
+                return ls
 
     def list(self, pkg=None, recursive=False, top=True):
         for d in self._list_files(pkg, top):
             p = fname_to_pkg(d)
-            if os.path.exists(self.get_package_directory(d)): yield p
+            if os.path.exists(self.get_package_directory(d)):
+                yield p
             if recursive:
                 for child in self.list(p, recursive=recursive, top=False):
                     yield child
@@ -717,7 +734,8 @@ class CGetPrefix:
 
     def clean_cache(self):
         p = util.get_cache_path()
-        if os.path.exists(p): shutil.rmtree(util.get_cache_path())
+        if os.path.exists(p):
+            shutil.rmtree(util.get_cache_path())
 
     def pkg_config_path(self):
         libs = []
@@ -730,19 +748,26 @@ class CGetPrefix:
         try:
             yield
         except util.BuildError as err:
-            if err.msg: click.echo(err.msg)
-            if msg: click.echo(msg)
-            if on_fail: on_fail()
+            if err.msg:
+                click.echo(err.msg)
+            if msg:
+                click.echo(msg)
+            if on_fail:
+                on_fail()
             if self.verbose: 
-                if err.data: click.echo(err.data)
+                if err.data:
+                    click.echo(err.data)
                 raise
             sys.exit(1)
-        except:
+        except Exception as e:
             extype, exvalue, extraceback = sys.exc_info()
-            click.echo("Unexpected error: " + str(extype))
+            click.echo("Unexpected error: " + str(e))
             click.echo(str(exvalue))
-            if msg: click.echo(msg)
-            if on_fail: on_fail()
-            if self.verbose: raise
+            if msg:
+                click.echo(msg)
+            if on_fail:
+                on_fail()
+            if self.verbose:
+                raise
             sys.exit(1)
 
