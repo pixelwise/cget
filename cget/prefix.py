@@ -158,6 +158,21 @@ class CGetPrefix:
         raise Exception("could not determine python version")
 
     @staticmethod
+    def get_cuda_version()->Optional[str]:
+        if os.path.exists("/usr/local/cuda/bin/nvcc"):
+            try:
+                out = subprocess.check_output(["/usr/local/cuda/bin/nvcc", "--version"]).decode("utf8")
+                lines = out.strip().splitlines()
+                for line in lines:
+                    parts = line.strip().split(",")
+                    for part in parts:
+                        if part.strip().startswith("release"):
+                            subparts = part.strip().split()
+                            return subparts[1]
+            except Exception as e:
+                print("- failed calling nvcc:", e)
+
+    @staticmethod
     def gen_state(settings:cget_settings_t)->Dict:
         state = {
             "cc_version": CGetPrefix.get_compiler_version(settings.cc),
@@ -171,6 +186,9 @@ class CGetPrefix:
             state["cflags"] = settings.cflags
         if settings.cxxflags:
             state["cxxflags"] = settings.cxxflags
+        cuda_version = CGetPrefix.get_cuda_version()
+        if cuda_version:
+            state["cuda_version"] = cuda_version
         return state
 
     @staticmethod
