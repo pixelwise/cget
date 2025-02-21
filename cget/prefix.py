@@ -122,7 +122,6 @@ class CGetPrefix:
         self.arch = arch
         self.system_id = "%s-%s-%s" % (distro.id(), distro.version(), platform.machine())
         self.settings = cget_settings_t(**json.load(open(CGetPrefix.make_settings_path(prefix), "r")))
-        self.state = CGetPrefix.gen_state(self.settings)
 
     def log(self, *args):
         if self.verbose:
@@ -173,7 +172,7 @@ class CGetPrefix:
                 print("- failed calling nvcc:", e)
 
     @staticmethod
-    def gen_state(settings:cget_settings_t)->Dict:
+    def gen_state(settings:cget_settings_t, pkg:PackageBuild)->Dict:
         state = {
             "cc_version": CGetPrefix.get_compiler_version(settings.cc),
             "cxx_version": CGetPrefix.get_compiler_version(settings.cxx),
@@ -186,8 +185,10 @@ class CGetPrefix:
             state["cflags"] = settings.cflags
         if settings.cxxflags:
             state["cxxflags"] = settings.cxxflags
-        cuda_version = CGetPrefix.get_cuda_version()
-        if cuda_version:
+        if pkg.system_depenpendencies.count("cuda") > 0:
+            cuda_version = CGetPrefix.get_cuda_version()
+            if cuda_version is None:
+                raise Exception("package '%s' depends on cuda but cuda is not found" % pkg.pkg_src)
             state["cuda_version"] = cuda_version
         return state
 
@@ -200,10 +201,6 @@ class CGetPrefix:
         return os.path.join(prefix, 'cget', 'settings.json')
 
     @staticmethod
-    def make_state_path(prefix:str)->str:
-        return os.path.join(prefix, 'cget', 'state.json')
-
-    @staticmethod
     def init(prefix:str, settings:cget_settings_t, always_write=False)->None:
         util.mkfile(
             CGetPrefix.make_toolchain_path(prefix),
@@ -212,8 +209,6 @@ class CGetPrefix:
         )
         with open(CGetPrefix.make_settings_path(prefix), "w") as settings_file:
             settings_file.write(json.dumps(settings._asdict(), indent=2))
-        with open(CGetPrefix.make_state_path(prefix), "w") as state_file:
-            state_file.write(json.dumps(CGetPrefix.gen_state(settings), indent=2))
 
 
     @staticmethod
@@ -317,7 +312,7 @@ class CGetPrefix:
         manifest = {
             "recipes" : self.dump_recipes(pkg),
             "system_id" : self.system_id,
-            "state" : self.state,
+            "state" : CGetPrefix.gen_state(self.settings, self.parse_pkg_build(pkg)),
             "cache_path" : util.get_cache_path(),
             "cget_version" : 2
         }
