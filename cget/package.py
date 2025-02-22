@@ -57,7 +57,7 @@ def fname_to_pkg(fname):
     else: return PackageSource(name=fname.replace('__', '/'), fname=fname)
 
 class PackageBuild:
-    def __init__(self, pkg_src=None, define=None, parent=None, test=False, hash=None, build=None, cmake=None, variant=None, requirements=None, file=None, patch=None, system_depenpendency=None):
+    def __init__(self, pkg_src=None, define=None, parent=None, test=False, hash=None, build=None, cmake=None, variant=None, requirements=None, file=None, patch=None, system_dependency=None):
         self.pkg_src = pkg_src
         self.define = define or []
         self.parent = parent
@@ -69,7 +69,7 @@ class PackageBuild:
         self.requirements = requirements
         self.file = file
         self.patch = patch or []
-        self.system_depenpendencies = system_depenpendency or []
+        self.system_dependencies = system_dependency or []
 
     def merge_defines(self, defines):
         result = copy.copy(self)
@@ -82,8 +82,8 @@ class PackageBuild:
         else: result.define = other.define
         if result.patch: result.patch.extend(other.patch)
         else: result.patch = other.patch
-        if result.system_depenpendencies: result.system_depenpendencies.extend(other.system_depenpendencies)
-        else: result.system_depenpendencies = other.system_depenpendencies
+        if result.system_dependencies: result.system_dependencies.extend(other.system_dependencies)
+        else: result.system_dependencies = other.system_dependencies
         for field in dir(self):
             if not callable(getattr(self, field)) and not field.startswith("__") and not field in ['define', 'pkg_src']:
                 x = getattr(self, field)
@@ -117,4 +117,3 @@ def parse_pkg_build_tokens(args):
     parser.add_argument('-t', '--test', action='store_true')
     parser.add_argument('-b', '--build', action='store_true')
     return parser.parse_args(args=args, namespace=PackageBuild())
-
