@@ -185,7 +185,7 @@ class CGetPrefix:
             state["cflags"] = settings.cflags
         if settings.cxxflags:
             state["cxxflags"] = settings.cxxflags
-        if pkg.system_depenpendencies.count("cuda") > 0:
+        if pkg.system_dependencies.count("cuda") > 0:
             cuda_version = CGetPrefix.get_cuda_version()
             if cuda_version is None:
                 raise Exception("package '%s' depends on cuda but cuda is not found" % pkg.pkg_src)
@@ -783,4 +783,3 @@ class CGetPrefix:
             if self.verbose:
                 raise
             sys.exit(1)
-
