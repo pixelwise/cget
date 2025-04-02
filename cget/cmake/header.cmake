@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 3.18)
 
 set(INCLUDE_DIR include CACHE STRING "Include directory")
 message(STATUS "Include directory: ${INCLUDE_DIR}")
