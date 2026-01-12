@@ -683,6 +683,10 @@ class CGetPrefix:
                 ]
             )
         ) + os.getenv("PATH", "").split(":")
+        additional_env = {}
+        for e in pb.env:
+            key, value = e.split("=")
+            additional_env[key] = value
         configure_env = {
             "PKG_CONFIG_LIBDIR":"/dev/null",
             "PKG_CONFIG_PATH":":".join(pkg_config_paths),
@@ -690,9 +694,11 @@ class CGetPrefix:
             "CFLAGS" : os.getenv("CFLAGS", ""),
             "CXXFLAGS" : os.getenv("CXXFLAGS", "")
         }
+        configure_env |= additional_env
         build_env = {
             "PATH":":".join(bin_paths)
         }
+        build_env |= additional_env
         print("dependencies")
         print([dep.to_name() for dep in dependents])
         print("defines")

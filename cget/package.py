@@ -57,9 +57,10 @@ def fname_to_pkg(fname):
     else: return PackageSource(name=fname.replace('__', '/'), fname=fname)
 
 class PackageBuild:
-    def __init__(self, pkg_src=None, define=None, parent=None, test=False, hash=None, build=None, cmake=None, variant=None, requirements=None, file=None, patch=None, system_dependency=None):
+    def __init__(self, pkg_src=None, define=None, parent=None, test=False, hash=None, build=None, cmake=None, variant=None, requirements=None, file=None, patch=None, system_dependency=None, env=None):
         self.pkg_src = pkg_src
         self.define = define or []
+        self.env = env or []
         self.parent = parent
         self.test = test
         self.build = build
@@ -109,6 +110,7 @@ def parse_pkg_build_tokens(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('pkg_src', nargs='?')
     parser.add_argument('-D', '--define', action='append', default=[])
+    parser.add_argument('-E', '--env', action='append', default=[])
     parser.add_argument('-P', '--patch', action='append', default=[])
     parser.add_argument('-S', '--system-dependency', action='append', default=[])
     parser.add_argument('-H', '--hash')
