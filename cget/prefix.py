@@ -624,7 +624,7 @@ class CGetPrefix:
             if not using_cache:
                 print("=> building %s to %s" % (pb.to_name(), install_dir))
                 try:
-                    with self.create_builder(pb.to_name() + "-" + uuid.uuid4().hex, tmp=True) as builder:
+                    with self.create_builder(pb.to_name() + "-" + uuid.uuid4().hex, tmp=False) as builder:
                         src_dir = builder.fetch(pb.pkg_src.url, pb.hash, (pb.cmake is not None), insecure=insecure)
                         builder.apply_patches(src_dir=src_dir, patches=pb.patch)
                         util.mkdir(install_dir, use_build_cache)
